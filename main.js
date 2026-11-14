@@ -5,6 +5,9 @@ const { createStorage } = require('./main/storage');
 const { createCookieJar } = require('./main/cookie-jar');
 const { createHttpEngine } = require('./main/http-engine');
 const { ServiceManager } = require('./main/services/ServiceManager');
+const { createMockServer } = require('./main/services/mock-server');
+const { createLoadRunner } = require('./main/services/load-runner');
+const { toIpcError } = require('./main/errors');
 
 const BASE_DIR = app.isPackaged
   ? (process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(app.getPath('exe')))
@@ -18,6 +21,10 @@ const storage = createStorage({ dataDir: DATA_DIR });
 const cookieJar = createCookieJar(storage);
 const httpEngine = createHttpEngine({ storage, cookieJar });
 const serviceManager = new ServiceManager();
+const mockServer = createMockServer({ storage });
+const loadRunner = createLoadRunner({ httpEngine });
+serviceManager.register('mock', mockServer);
+serviceManager.register('load', { stop: () => loadRunner.stopAll(), status: () => loadRunner.status() });
 
 process.on('unhandledRejection', (reason) => {
   console.error('[main] unhandledRejection:', reason);
@@ -55,6 +62,40 @@ function registerIpcHandlers() {
 
   ipcMain.handle('pm:runtime:request', async (_event, requestSpec) => {
     return await httpEngine.executeHttpRequest(requestSpec);
+  });
+
+  ipcMain.handle('pm:mock:start', async (_event, cfg) => {
+    try {
+      return { ok: true, ...(await mockServer.start(cfg || {})) };
+    } catch (err) {
+      return toIpcError(err);
+    }
+  });
+
+  ipcMain.handle('pm:mock:stop', async () => {
+    return await mockServer.stop();
+  });
+
+  ipcMain.handle('pm:mock:status', async () => {
+    return { ok: true, ...mockServer.status() };
+  });
+
+  ipcMain.handle('pm:load:start', async (event, cfg) => {
+    try {
+      const summary = await loadRunner.start({
+        ...(cfg || {}),
+        onProgress: (snap) => {
+          if (!event.sender.isDestroyed()) event.sender.send('pm:load:progress', snap);
+        }
+      });
+      return { ok: true, ...summary };
+    } catch (err) {
+      return toIpcError(err);
+    }
+  });
+
+  ipcMain.handle('pm:load:stop', async (_event, { runId } = {}) => {
+    return { ok: loadRunner.stop(runId) };
   });
 }
 
