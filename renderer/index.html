@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Carro do Ovo — API Client</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src blob: data:; connect-src * ws: wss:;" />
+  <title>Ovo Frito — API Client</title>
   <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAB5XSURBVHhe3VkHWNVl+z6AKHvveVgHOMA5h33YWxDEkSNHZWWWZVmZlTlKLctRNtQsTRw5PieKIU5cuDUlt6XmwIWDIQKu+3+/Pw6KRV9ZfN91/b/3um5++32f536feZA1M0zNZbJsKwurl22dvfL+38PVK8/GWT7ZxtyqjzX1on5mDWo2M6xMzQc6a9ud9H55AhSjliBgXBECxq/+H0AR/EcvhfeAz+Ac1+Gk0FOn8sNhY+/yjXffD6FaegGaNbVQF92EurDyfwdF1Q16Lb8CXxJh6+Q+Tac6d97M7BXvFz5C6Np6qFdck0hQLb34P4gL1O8qQtffJgkTYWVq8arQ38QpOqtMveySTvnmPvxv4BJU+ZcbsIxo9p2WgXp5OdQF1+Gc2LlMZm5gkO1Dk9Csq+ND7vwyvvTfghCICmtW30RoURXU+SSB9zQruUtrb0G98nrDO819+08g1lhbB99BUyGzsrB5LWDMcoRSCDUf/tcgYg0VDF1VAcXIRbBIeAYGvhnQ80qDkbozXJ8bi5DZhxG2pkYiptk5/gFCGRMCJ6yBTKQK5YTVFIQ70MyLLQHNiivSgmFrbklHTQF3eFUlVAt/hUXcUzBs44K2EZ4Y8XQgxvRT49lsJZysnSGzDoH32zMRtrq6xUkQ+io/WycRMFP56RpJMGmRloRYqLACqiVl8PloJTzeng3fjwsR/P1xqBafg2VEFyicHbFqbBSwMQ3YTGzJAErScGZuHJ5K8oFMZgvPgVMQtpYRXAjf3Dp/A0Jf5WdrdRZAAsLEzvBBS0Ior5y6GxaB6Whj7gFLc0e0NpND5hQNfXkyDEzkWDI6GtiXDGxIwZ0f0nD7h2TcKeT1WmKuCv3bkgQzPwRN3SVZTXPr/B0IfYP+0wSEr6+DTftBUNhZY9fHapSOU2H9+xp88VwgOmrlsHX2RytrBbpmhmLfdCq8OR0oSkb9yhQSkYTqWRpc/iYUge5usOv0NsIZGJtb5+/g9wTQz5p78Z9ACOw28FvYmthi64dhQH4ksIjHpSpgsQqXv1Vj0stq+Pqq0MYmCAOfDMWN5YlAsbCGZFybyffnavBeZ3/o+2VCs5wZg/GkubUeF48S8BkJWEMClvNhCyKUwoYV3YBt7iCYGTlhzDMaLBkcjOFdfdEvwwsDsn0x4kkFXuuogLuHH2SG/ggOVGLnFC2wLQ01s8NwZ7YGM1/yg75XMn33AkILyptd63EhNjxooo6AIBIQTgJC+aClEcacHrG2hmltHBX0gEzfDWau0VCE50IV1w2KiA5w8tbC1jUIhmaeDHr2MDB1w9iXI/DLV+HAEg0WvOwDA+8U7txFhJGA5tZ5XIQ/SsBaEsBihCbW0pAIYCxwfHIoDI3sMOnrGbhSfhVNR2VVFU7/ehbr1m/G2E8noW2HZyCzICGmrhjazR9DOnjD0DtZRwBTaDPrPC7CWfcETWxIgw0ErCUBK/iwJVFwBREb6uBE5fVk5pi7YIlO5T8fR4/9jFcHDoEeM4BIhc4pvelOFdKcza71mBAb/oCAYBIQQQLC+KClIMwssrge3u/MogImmDx1pk61xxn3sbu4CKGaeJiEZCO88LrkAs2t97iIIAHB/0kCIlZXQTWzFLLW9ujzbH+dQo837os/N6/gwOY18IjpBBX7BTFvGMltbs3HwaMEMBhErCMBBXzYQhC7b5nSB55uCly7fl1S6O+M2ptVuHPlJCbPmAOb5z+FavYhhNMVmlvzL2NluaRv8OcPCFjHGzV8yLTVAohcfwsB49lo6Nli4eIVkiLSbv6Ncf/+fVw/9zOunDiAYA9fmCf0QiTjSnPr/nvQ7wuvSd+Ko9A3+PP1DQSEkIBI3gjni/8YZFfMZRLRCbGxrOubjJJtu/D9vMWora3V3fn9uHmzRnf2cFRcPo/aCyfw9ecTITOwRzDL4ki6bLPr/wGiaJHhP1yF24CvYcMUrJn/C1RTtuoIoClEricBK/nyP0QkTStoSglkreyxaEnD7otR+tMRGFl5MyAa470RH+vuPjomTJzKgigIwz4Yi3v37unuAnU11bhMCyg7uh9+3io4PDkMUZtu/3597nLEqmtUtg5RG+sbsOmOdPQbuxp6PulwtbaHnYMP1IvPQj19V8sTIASz6TAQfj4q1NXX61QA1heTbZkNYYhXXh+qu/tw3L17F57+0XxuBWMbX5Q3qRXu8dmlnw/h7tWzePuNwZA5hzEQXpCUfbi2CLyMDbzv+d4COL46HY4DZ8DrrRmwTO0HC875Xk8NjkzLhKdnAJxenISgCatalgBJIJarMvsgvP32CJ34DePOnbv4csp3GPTWcFy8dFl399ExeMgomFm64Pn+b/H9O7q7DeP6+VOoPn8cawvyWTG6IXDiBkQ1kTmCfh1ecAmWcT0gd3BGSqgPUtRyOFi7IjLABwdntAd29MLVxZ3g4RUMaysPWPnH6Qj4Yh2iNtxCxA+Mjv8A0ZwjkI2VvqE9tpbs1In+eOPc+fO6s0dH5ZUyyQ0unCiFwjsEjr3eR/TmO4gQyou1N9bBY9gi+Lt7oHxRJ2BdZ/YT3dE9S4tXurDlLunOTrMbyhZ0ha9ChWlvJ8NFHtDCBFAg5z5j4Osdilu3mg90ly+XY/SHE1BRWam70zBmzVmAYyd+0V39ftTcuMoY8CPqy39Fj07dYajKRhTjTUQhS22xNl3P9Z15zBQuwOongC1UeG8vPJkZSQK0wPaeEgHn5nWCjyIEQ/vEwcG1JQmgIEKg1qG56Natj07s349fz5yDfmsnBKiTsDS/EMWbSvDU86/T92X4oWi97q3fj9rqCpQd+xG3y8/gk5Gj6GZKhC05g0h2m2L9SPp/6KLTMJFrofVzx/OdY9AlMxxOboFI1obhyOxcWkEPVC7pDFcPf7SyD4FLVr8GAlQkQJhvpJjoMRG1+gai11UjurhWOpc5hXCHx+nEbn7s2VcKTXQWu0NHwgH27mp8N2uB7mnzo66migTsR82FX7Dk+1kwMPeEasZ+xJTch5aWp6UFaClD6PzjsO89RmqmMrRBCFeroOcUCXM7P/TPDcGGsSnwcFfAd/x6hM7Y04SAYhJQSKX+Ehjti65xYebW/PMUZB80cw5BKUpLMzkWLc7Xif3vx5Gjx7Fv/0+oqfl97v/tEARcIAEVZ49h25pCmNv4QDlpK4InbYZF+gA4P/MxIihLzFaSsfUuDPzbYuG7WgzuEgLzzkMRyNRsGNEdJlaesDB3hWbBL9B8u6MpAbXNKNo8ooqu09yr4fXSp7BwDYGJmRNMOamprQ8MrXyw5W8GwH836m5WSgRcP30ER/Zsg7O3BtaJPWHhHISEABv4OdjCRtsNUWurELcHcOn6NmztvWDvEQzvN79BwmFIOgZ+uRmu3d9F2FLWAVO2NBKwng/rqNzVv4SYLXchf/5jGBvYwLP3CASOyWdOLYLH82NgbCnH8RMnUVV9E9t37MGKlatRtHoDjh3/4wD3V8atCgbBI/tw9dRhnPxpD+RKLUttF3RJ8wV2+2DVGH9ee7IC7Q5N3o+IXl+NoKm7YZP1MoxZlQZ8XNDgJnT1mC3CZeqh+lJXCqt5omUaiVrFQPYn0K5n00Q/MzFxgteLE5DwE6R7Dp1ZoNgHw4i+2f3p/vAPTYHM2E0qbGR69rCwD0R82hOYM3eRTqU/H7+eOcsK8pB0XlV+8QEBp0p3w5tFU2srP6YyJZaN9keYKhABCj9EeNnC0CEcYf86DqduQ+DipEBGShZatXJAwOhliNl8u0GPjbVQf7Xh8QmIKbkH9x5DYO4QKF1Hr70Bi7BcKFj5jR49DpFx2azXbVkKO8LdLxpR8TlQhqfByNqXZJhKDVKv519D6cEjtIx1OHjoqKTgb4dognwDopDdobd0fb3stOQC104fxuFdW+DqHQZTxwCYOwbD1CEY7l5KlH8vR91SOTQsfIxctGht4YWNxWuk71/o+yoMnMMZuC8jek3F3yMgel0lwpedhZmtL+TPfYiEA4DPkNlobWCBHbv3SQut+IGBUM8Gn0+ahstXyqV7NbduMfIfwIA3h8LGTQV9cy8YWshJkh3ftcOQYWOk9xpHbV0dej87QOondu7+kWzcw6UTB3HxeKkUBEvW/gALlyCYOythyaPMOBBTBngz93sAWz1R8L7oOezQu89LuhmBqyykzBmnFJ+sROw2Wi2D/kMCvlqPmE11iC6ikn+Icn54D75vfg0zRuCwf51A/G7AtuNAKAPDdMsAA94Yzp1n4fEHY/QnX0BP3xa5XZ7Dvh9/wqRvxC9GVuj5zMuYM38Jn38Od99wKm+L5QWrpW9uXruEssN7cfFYKW5dPIX5s2dBn7tr6RosEWFoHYBPnpdj5Yc+WD7KD1Nf84WekRv6vjIYKwrXI3/lKuSvWA45GynrpKcQWXARsVtvQzNJIkBOAjaQgHoqee0PoV1biSimPwtXFdyodOy2+4hlMPF9bzbrdzd8O2MevuSuy2QWaJvbSxK8YTz8JWD+wnxYO7D6Ykf4zfQ5urvAF5OnwcZRASNLb1i5BKNzt+dwoLTB9++zK7x86ggusBO8cPSAVAi9++4IyEw8pN0XJNjRqozsgqBnqYSBlRJGtkFSbWFuH4BWph4wMHGDgakrbFyDYMbY5d57OOJpsJpJxX+RAJp/3A7Af8R8GBs7IGzeUSTsBeJIQhwznn1SD0lxA8cQ2ER1hAMXv/SbhmfkR5/R3BmIVEnQRKYjirGiacsrusErV67+7reCyktnaP4HcJndYPnPB5kGDyM2sT133ZebEQR97v7XQ5/CZ291p8IKbJr0HEpnD8D+2a/hx1kDsGfGS9jz3YvYl/cSjswfiBhVCKw7vIl4yv+QAJpCDIua6NVUtilo+tp1FZLyUT9cgpUqC8bySMhHzIN82Bx4vz8ffh8uhZWmLdqYOjM4DobyowWQGbngzXc+wB6a+N79B/HCgLclMxc7tXHzdqxaUwyD1g7I7tgbG7dsx40bFairq5dIEF3j7du3pW6w6ioj/9G9JKAU5b8cxu0rZ7B62RK0sfJm/tf5v7kfCif2xZKxfWDpFICKosGs+9mJlgx/iG3EDt7bOxJpobSazu8g+Wcg7NuSBgKEL8SSAC2VfoA1N7jD9xDDKO89mKbtHQMHWz82G2p4WrnBmW2ro6U7HCw8YM9obMOCSOyAsZUcJk6BkIkfP6y8CB/ITD2hZ6eAIc3bwjsSVj5RNN0Q6Jm60Wy9YK3Qwl4ZD4egODiHJMJNkwzPiDR4RaTCJyodPpFp8ItOhzolF47B8ZBZ+0GPWUiPqVVmy7JWpYFCEwl952DEJiUgOSVeQmpaPDIyEpGVmYScdsnokJMMazfKEZgG+ZuTETx6YfMExG2pR+ymWijHFaKVph3bW2s8w3z7U0Ymytvn4FxWO5xu2w7HM7JwOC0LpcTelExsT0rH5sRUFCenY3ViGvK1iVgYTcSnYh4xLSIe32qiMT0qAen+kawbAmBn749+Xmq86avBqz4avOKtxkteKrwgD8ELPPZlxfcsn/dmRdfdNRBP8fkLymj0CYzCUwER6KkIQ7ZbMHLkoejKtJlO90siEQlOwYhjlRjjFIRoxyBEMl2GOiiR6BWGRFcl7IxZvXpoGgkoJgG3JaXjt9+H6uutMI3pykDjhlxPJbYkZ+B++w6obd8eFTk5qMppj2riJq9reLzF4y0ea3NyUUfUE7d5fZv377TPJdrjfm574IlOuEHyXgyMQCsGw2y/cOyJT0N9ahZqSGJNegNupmfiZhohjry+ld4OtzMIHuv5Xj2JryZuEfV8XpWaiUo+q+Q7AhV85wa/v/4AWbiW1o7IQjnfvZ7SFrsT0qGQq0mAk0de2DclSGJFFz73EGzaM/+aeyDC1hP5cSm417Ej7nTIxbXsnL+GdkRWe0KcZ+MqFa5pR+GzszGb81k5MUrb+OJLlRbVFLqKQpUltcX5pAyUJfNIss81wVla1QU+O5OSgaO8PpCQhkO0pmu83hWXigyfUOmeUOw8FSuTIObKkOYSEOcXeP8C5xfnF3leR+K6BNIK7TwC8tTjC+DefzxkNBFfS1dMjYhDFZW5x527LhRqVKypos3de6B8eyqegwoqjY4dcDStLbJozjJrH3RShOMwFarlrl+UBHoIoUBT5QUuESe4W4GM+Ma0mjb0fXMHf5TGpKAoKolu5I/1sSnSjp+X5hBK6+bjt42ENp5LzxNoBZHZeMKXBDgoNHkm9AtXUyd8qo5GOU0c3PEKKiOUaKpUs8o2kiDebQTvVXD3b5KASdFJMHIMhI2DAtNDYyUTvyF2SyfkA4gdIiQlKGijAheIMyRsaFAk+gWEY2BQND5QxeBcYjpWRiWiDefeEJOMa6lC+QY0ztl0nkZCzyZwnQ5JqB0ThK7xIWzfvYLyFAw434XH4VRqhm7Xs6mEQKNSOgIaFW7X5Jq4TtyhzyNX+H8ObtDka0hKri99jFG+L03tNAWrpR82mOGjQkqQzPahsI33G8+rSdzDGEG/544vlwgIIAEpJCAT5ziHQON3Ao+sxWdnotrhxrAQ4KgpenRmB2nrp8pzYX42ZhcnY9U0XBODegasa9kMGoKE3xLQBFeJSj6vIiGzI+MxmKXmEu54PUms4v3hQVGYyV2vpcBCwKa73lTBfwchtFBK+O7Db9uikvOtEAQw5RbHNlhAc98LiHUavz0TSQJGKIF9lujRiWnU1Nkvzz88GRs2LcPYzz9hAPTGmgQGP5IgorfY0TopwjPSZ+fSrHNQTdOuIq6LnWbEf9ovlL4UCN/YdvRzBd4JjkZdVjZ3i1GZvt5U8EYT/62ATa//CI3fi7keEEAXKJYsoJn4QeKEpVQT5TrXOCsIGEILOGaGnl1FWd7KLm/cxI9YdIp/YB6DEy1gWEAYrlLBZXHJKEpIxSZG4l2c7AAnOspa4Je2mTjbNgt3SU6+loHIRoGVRYX8/i6mzfpO+h1gMyN+pS7CNxLQFELAKxSqhopUEzUk6gaVaHz/t8oINCovIBFAa2vjLCzg9wQIxY8yO8wMj5dQynRbxVrlfHwmLuYmo26CEt2SglmemzrnvTjwNQpfjuuXtsFIrsI0mu33NGkZmxNRaclYxemxaDEkjOhzog83svXBupgkjPcPg09MJr+/TVSye7kCaxY5XzBY1dICzv8BATepwEFG91EhWvRmPTCQhc0abTLzf0N2aKpMg7s0WE6DK2RIgbSgCQEitze8lyHFiUV85snKU2QJPcKerjJZwyDM+c8nZqEyKgudfSOoG4OgASumbi/0RVBqNpyo5Gn6/mUWGcXxKShkzl3G4zzu6Les6j5livyAVvKmMhInaBWLaIYGLiHs3tgwcGwp2chJA7CcylSLxZohQAixMDIRrqKW53oy0SESrWnOI4K1UmEjlGzqGo3KNc5RIQhgGmzDukK4gEQA1xLfFnJtY+rUihANk4WLUprbgG5awGf3+O51ZpbcAFEHMAi+HhKNdO5oN1ZGxxnl0aUTK7dcKR2iYyMY5cVR3BNVHeNBLeNBJSvEFE81DOUaJD/xDGTuGuSwfL3JmHFZCMV01dQNqmjqq7UpMOaOtKLwDS1tEKwIUzY4Mjt/fB0WR5IY1R8oL5TjkfM0FEwZkguslCyABOhcQFiOWE/lHgJ9zmvFElnfQo5WlvKGc5bFmd6hWEyX8GHfYkrILLxC8voyv37E8nQKU+EMmv407vIC1vErufMbklKxPTkN+1LTWfdn4CTL0/OMAeWs8CpIwN3cDswE7THGn7W4ow8rvCjck1IiAyhdQPh4uRCMQgsBr9IP47xYg5MAIZT4VceQTZMZOzlLtyC05rWXWwh+Zty5RAIbCSiTCHiICj4TQdBQygK0AK4j3GcWyZPZ+0lzmfJZTvd+iM3oCmO6sSXXsxNdJDc7OL0L+r07usEFHNSJsA1KgBk7NUPRpdFnmB+hZ+MHfXZ1BkyRrU3dYczuzdLMnV2gHF623lDa+yLMwQcpRE9XBV70CsI7jAlvsUEZqgzHu34ajCS5pQxGwkQrqHw+zdaAggnTNOPRmik4OuMJWLPZMXH0hxV3T2SUyZo4KU40mr+wHmn3dajgvRURicKEsZEuIGJCLfuA/ky9Ms7TysITKblP4djFq9h28AT8w1JhZOcLM2Fl7HFefmc0Vm7bw4Dt5JU3ee4S7DxyEqtK9mLJhhLMX1WM7wvWYcaSQkyZuxTjp8/DyC+/w5Bxk/HGhxPRf/gneHrQB+jUfzDSn+4P7RN9oMnugaC23eATnwu38AzYBMbCRhkDA3Zc/mT+KIW+TfMfoKSAOtMXQg7nnEcvXceXMxc2/M5Hf5XRX3spIiR/bvT9Risoo2UIXCROshdYEhaLMzT7q3SBW8xMOf4R0JOUdMXQsZOw//QFHDxzET1fHERlnWFq6QaZvjWyO/TE+EnTITNykOfNzC/C8cs3sOeXc9jz81ns4/HHk+ewT0DcI8T5/tNlOECUclJxvvfkeezms138ZveJX7H7+K/YceQXbCk9hrW7S7HpwDEsKCyGnrsKX6u1uMvonML4oM/gJBqioKgMbD30M0qIUs6XmNMTregO+nSHRLqJ6AhFDhdpUliDSJXCpWpoSdWEcIMaXZw5RUKOswWPpI+3JpEGJHfs1NmSPqW/XkDf14aglasGQSPnEQsQMmYp/F9h/2Pm6pf3+oix+G7RSsxYugqL1mxCwaadWLVtH1bvOoAN+w5j60/HsfPoKew9cYaEnKXi5yTlBfadOi+RsZ9HQdpeLriL7+0kGT+eKsOuY6dhERCDb5QRQEY21J4qCqiUBGzf40Vpro0/HpGI7dFvEPTMPNCarqH2CMEW+nYhM8/ciHh8xcwzknO84avCc/IgdPFQIsNZAa2dN4LtvKBwD4Y7/d6SqU9AVLXvjvkCh8vKJRmTM7vBTJmK5F1Ayl6C3W9E3i66m69qppG5G/QMrGFk5gJLay/YOfjB0dUf7uwRfGlSam0mA0k3pNKn2nV/AZ2fGYCeLw1C31ffxRtDRmPYRxMx5otpmEDGv5q1ENMXFnDnN2DZ+hIMHjmB9YM/XmCeH6SMho0wc/q/IKBtl2dJHAnYfwR7aUk5JESfvYMlXcSMMhmbOaEVA5a+I02aEVzmEQqDoDQYqtvCOKI9rLP7w6HXUNh1fBWtHXylzCL+VSYIMBK/XkVnYi038fO8f8HY0h12Ye2QUFyJxE03kbTjHiK+2cxY5+GXF/DaZwgeVwDlqAUIHP49AobPgWLYbPi9NwsKmot1TGcY0H8M6Ffix0+ZzExCK89ItFEkwNA9QhJc38wNhhYMliIKE2Y2XgygHrBgoBIpT+R6EfxEyhPvyIPjsZVucujcFVraIXgGamFkLYdtYDJlWQjlmMUInbYNkfMOInL+IcQsO4WEDRWSEgmbqqnEXaTuBxJL6mCrTIIZN89SR4AVM4kxSXDyiYA1XbB1G1vYKGIfJeDbLZBZmVq9FjltC9KP0Cx2E3seRfoxwPvpYTA2tIW9JoPnQ+HZ5Q14PzcKcWuvInHzTcQVXUbUv44gcu5PiJiznyiF6ou1CB5fAG3+Kfi+NA6m5rQuBkOR8xsQLKW/rs8ORMHGHej+/BtSUDQ1c4ZnjyEP5Emmkknb6huwtVYSPpHKCyQUV0kKCZMOfG8mjFvbkQAGWM7dWF+IqtWUpMqfHAzNF6sbCNhYheSdOgswkcmyg9+ditR9ZFJ6+ChSSYJXz3fQRmYK76eGIoOEiHtCuKQtNZIg4phMAZO3336AFC6Qsus+0jivdvEJKd9bOPk/JEAISBhae8PUwR9tuFvi2sTUGZqv1knf/laWP0ISZRBrej87EqYWbiTRhUdXiXQzc1cY6VlA/Um+JLv0TXEFUkmaauQcWrJMZuqW1LksuaSWDFOh306+uRox+ScROXufdEzk9W/f+TOIxXz6j4cxzdCSAfABCaJUFTGBviusQ/zD1TXnRe7ObRJb1exczaNC2oSUnXegmVgIz+6D4N7ldXjQUt07vYqAQZMRV1jGd2g9fD+JVpuy4w7cs3pdEATILIwtXg0Z8g3SDuh2tenktAphesn8QDLBZqzkzyAWTN5eDzktyMSUu8MdMreRE96ME7QAK3cYtbGBQ+wTiF9zWbKm5ub5U5A0YTmC8KZuLK4lvbjzQpa0UkA96ntY0P0lAjj0bBw9pwkSUmhKwh3ERC0GuoMQIp0Lh07ZTFMdBbd2feGc1hsuaU/DvX0/KN//nu/dRTo3odF9WhqSXpxbPWoubF19pwu9G9TXDXNT8zc8M3udUtM3oqZtRdR0ggGyRfDtZmm+mLn7EbPgJ0Tn7UTUd9uIEmhn70asuDdjOyLFe819/3fBSC/pMb0E6tFzIc959rSlueUbDRrLZP8HPgWss5ZOjQ8AAAAASUVORK5CYII=" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -18,14 +19,22 @@
         width="34"
         height="34"
         alt=""
-        title="Carro do Ovo — 100% Local-First API Client (.ovo)"
+        title="Ovo Frito — 100% Local-First API Client (.ovo)"
         src="data:image/png;base64,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"
       />
-      <span class="brand-title">Carro do Ovo</span>
-      <button id="btnOpenImportModal" class="btn-small ml-8" title="Importar Collection (.ovo, cURL, OpenAPI, Postman, .bru)">📥 Importar</button>
-      <button id="btnOpenCommandPalette" class="btn-small" title="Busca Rápida e Paleta de Comandos (Ctrl+K)">🔍 Ctrl+K</button>
-      <button id="btnOpenDevToolboxModal" class="btn-small" title="Caixa de Ferramentas Dev Offline (Base64, URL Encode, SHA-256, HMAC, Timestamps e Geradores)">🧰 Utilitários</button>
-      <button id="btnOpenManualModal" class="btn-small" title="Abrir Manual Completo do Carro do Ovo (Atalhos, Variáveis, Chaining, Proxy/mTLS e .ovo)">📖 Manual</button>
+      <span class="brand-title">Ovo Frito</span>
+      <div class="cdo-dropdown">
+        <button id="btnMenuWorkspace" class="btn-small ml-8" type="button" data-dropdown-toggle="workspaceMenuSlot" title="Ações de Workspace (Importar, Sync, Docs)">📂 Workspace ▾</button>
+        <div id="workspaceMenuSlot" class="cdo-menu-popover align-left hidden">
+          <button id="btnOpenImportModal" class="btn-small" type="button" title="Importar Collection (.ovo, cURL, OpenAPI, Postman, .bru)">📥 Importar Collection</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-center">
+      <button id="btnOpenCommandPalette" type="button" title="Busca Rápida e Paleta de Comandos (Ctrl+K)">
+        <span>🔍 Buscar requisições ou comandos...</span><kbd class="kbd-hint">Ctrl+K</kbd>
+      </button>
     </div>
 
     <div class="topbar-actions">
@@ -42,7 +51,15 @@
         <button id="btnManageEnv" class="btn-icon" title="Editar variáveis e profiles deste Environment">✎</button>
       </div>
 
-      <button id="btnOpenNetworkModal" class="btn-small" title="Abrir Menu de Configurações (Disposição das Janelas, Tema, Proxy, Certificado SSL e Cookies)">⚙ Configurações</button>
+      <div class="cdo-dropdown">
+        <button id="btnMenuTools" class="btn-small" type="button" data-dropdown-toggle="toolsMenuSlot" title="Ferramentas e Serviços Locais">🧰 Ferramentas ▾</button>
+        <div id="toolsMenuSlot" class="cdo-menu-popover hidden">
+          <button id="btnOpenDevToolboxModal" class="btn-small" type="button" title="Caixa de Ferramentas Dev Offline (Base64, URL Encode, SHA-256, HMAC, Timestamps e Geradores)">🧰 Dev Toolbox</button>
+        </div>
+      </div>
+
+      <button id="btnOpenNetworkModal" class="btn-small" title="Abrir Menu de Configurações (Disposição das Janelas, Tema, Proxy, Certificado SSL e Cookies)">⚙ Config</button>
+      <button id="btnOpenManualModal" class="btn-small" title="Abrir Manual Completo do Ovo Frito (Atalhos, Variáveis, Chaining, Proxy/mTLS e .ovo)">📖 Manual</button>
     </div>
   </header>
 
@@ -114,10 +131,15 @@
         <span id="reqProfileContourBadge" class="req-profile-contour-badge hidden" title="Profile do Environment Ativo"></span>
         <input id="reqNameInput" type="text" class="req-name-input" placeholder="Nome da requisição..." />
         <div class="request-header-actions">
-          <button id="btnOpenCompareProfileModal" class="btn-secondary" title="Comparar resposta desta requisição entre dois Profiles ou Environments (Diff A/B)">⚖️ Comparar Profile/Env</button>
+          <button id="btnSaveToCollection" class="btn-secondary" title="Salvar na Collection (Ctrl+S)">💾 Salvar</button>
           <button id="btnQuickCopyCurl" class="btn-secondary" title="Copiar requisição como comando cURL em 1 clique">📋 cURL</button>
           <button id="btnOpenCodeModal" class="btn-secondary" title="Exportar arquivo nativo .ovo, .bru ou gerar Snippet de Código">&lt;/&gt; Code / .ovo</button>
-          <button id="btnSaveToCollection" class="btn-secondary" title="Salvar na Collection (Ctrl+S)">💾 Salvar</button>
+          <div class="cdo-dropdown">
+            <button id="btnMenuReqMore" class="btn-secondary" type="button" data-dropdown-toggle="reqMoreMenuSlot" title="Mais ações da requisição (Comparar, Load Test, GraphQL, Ferramentas)">⚡ Avançado ▾</button>
+            <div id="reqMoreMenuSlot" class="cdo-menu-popover align-left hidden">
+              <button id="btnOpenCompareProfileModal" class="btn-small" type="button" title="Comparar resposta desta requisição entre dois Profiles ou Environments (Diff A/B)">⚖️ Comparar A/B</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -132,13 +154,16 @@
             <option value="HEAD">HEAD</option>
             <option value="OPTIONS">OPTIONS</option>
           </select>
-          <input
-            id="reqUrl"
-            type="text"
-            class="url-input"
-            autocomplete="off"
-            placeholder="https://api.exemplo.com/recurso ou {{base_url}}/posts (pressione Ctrl+Espaço ou digite {{ para autocompletar)..."
-          />
+          <div class="url-input-wrap">
+            <pre id="urlHighlightLayer" class="url-highlight-layer" aria-hidden="true"></pre>
+            <input
+              id="reqUrl"
+              type="text"
+              class="url-input"
+              autocomplete="off"
+              placeholder="https://api.exemplo.com/recurso ou {{base_url}}/posts (pressione Ctrl+Espaço ou digite {{ para autocompletar)..."
+            />
+          </div>
           <button id="btnToggleVarPicker" type="button" class="btn-small" style="border:none; border-left:1px solid var(--border-color); border-radius:0; height:36px;" title="Listar e inserir variáveis disponíveis (Atalho: Ctrl+Espaço em qualquer campo)">{{x}}</button>
         </div>
         <button id="btnSend" class="btn-send">Send</button>
@@ -200,6 +225,8 @@
               <option value="basic">Basic Auth</option>
               <option value="apikey">API Key</option>
               <option value="oauth2">OAuth 2.0 (Local Helper)</option>
+              <option value="aws_sigv4">AWS Signature v4</option>
+              <option value="digest">Digest Auth</option>
             </select>
           </div>
           <div id="authInheritPane" class="auth-fields hidden">
@@ -252,6 +279,7 @@
                 <select id="oauthGrantType" class="select-input w-full">
                   <option value="client_credentials">Client Credentials</option>
                   <option value="password">Password Credentials</option>
+                  <option value="authorization_code">Authorization Code + PKCE</option>
                 </select>
               </div>
               <div>
@@ -267,9 +295,62 @@
                 <input id="oauthClientSecret" type="password" class="text-input" placeholder="client_secret" />
               </div>
             </div>
+            <div class="chain-grid" id="oauthPkceFields" style="margin-top:8px;">
+              <div>
+                <label>Authorization URL:</label>
+                <input id="oauthAuthorizationUrl" type="text" class="text-input" placeholder="https://idp.example.com/authorize" />
+              </div>
+              <div>
+                <label>Scopes:</label>
+                <input id="oauthScopes" type="text" class="text-input" placeholder="openid profile email" />
+              </div>
+              <div>
+                <label>Redirect Port (127.0.0.1):</label>
+                <input id="oauthRedirectPort" type="number" class="text-input" placeholder="8765" min="1024" max="65535" />
+              </div>
+            </div>
             <div class="chain-actions">
               <button id="btnFetchOAuthToken" class="btn-small">🔑 Obter Access Token Localmente</button>
+              <button id="btnOAuthPkceAuthorize" class="btn-small" type="button">🔐 Autorizar PKCE</button>
               <input id="oauthAccessTokenInput" type="text" class="text-input" style="flex:1;" placeholder="Access Token obtido (ou {{oauth_access_token}})" />
+            </div>
+          </div>
+
+          <div id="authDigestPane" class="auth-fields hidden">
+            <div class="chain-grid">
+              <div>
+                <label>Username:</label>
+                <input id="authDigestUser" type="text" class="text-input" placeholder="Usuário Digest" />
+              </div>
+              <div>
+                <label>Password:</label>
+                <input id="authDigestPass" type="password" class="text-input" placeholder="Senha / HA1 password" />
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary); margin-top:6px;">O app responde automaticamente ao desafio <code>401 Digest</code> e repete a requisição assinada.</div>
+          </div>
+          <div id="authAwsPane" class="auth-fields hidden">
+            <div class="chain-grid">
+              <div>
+                <label>Access Key ID:</label>
+                <input id="authAwsAccessKey" type="text" class="text-input" placeholder="AKIA..." />
+              </div>
+              <div>
+                <label>Secret Access Key:</label>
+                <input id="authAwsSecretKey" type="password" class="text-input" placeholder="Secret" />
+              </div>
+              <div>
+                <label>Region:</label>
+                <input id="authAwsRegion" type="text" class="text-input" placeholder="us-east-1" />
+              </div>
+              <div>
+                <label>Service:</label>
+                <input id="authAwsService" type="text" class="text-input" placeholder="execute-api" />
+              </div>
+              <div>
+                <label>Session Token (opcional):</label>
+                <input id="authAwsSessionToken" type="text" class="text-input" placeholder="x-amz-security-token" />
+              </div>
             </div>
           </div>
 
@@ -325,7 +406,11 @@
             <button id="btnBeautifyJson" class="btn-small ml-auto hidden">Formatar JSON</button>
           </div>
           <div id="bodyRawWrap" class="body-editor-wrap hidden">
-            <textarea id="bodyRawInput" class="code-textarea" spellcheck="false" placeholder='{"chave": "valor", "requestId": "{{$guid}}"}'></textarea>
+            <div id="jsonEditorWrap" class="json-editor">
+              <pre id="bodyJsonHighlight" class="json-highlight-layer" aria-hidden="true"></pre>
+              <textarea id="bodyRawInput" class="code-textarea" spellcheck="false" placeholder='{"chave": "valor", "requestId": "{{$guid}}"}'></textarea>
+            </div>
+            <div id="bodyJsonError" class="json-error-hint hidden">⚠ JSON inválido — verifique vírgulas, aspas e chaves.</div>
           </div>
           <div id="bodyGraphqlWrap" class="body-editor-wrap hidden">
             <div class="tests-split" style="flex:1; min-height:0;">
@@ -450,8 +535,13 @@
             <div class="chain-actions">
               <button id="btnCopyResponse" class="btn-small" title="Copiar corpo da resposta">📋 Copiar</button>
               <button id="btnDownloadResponse" class="btn-small" title="Baixar resposta como arquivo (.json / .txt)">💾 Baixar</button>
+              <div class="cdo-dropdown">
+                <button id="btnMenuResGenerate" class="btn-small" type="button" data-dropdown-toggle="resGenerateMenuSlot" title="Gerar Tipos, Contratos, Exemplos e Exportar">✨ Gerar / Mock ▾</button>
+                <div id="resGenerateMenuSlot" class="cdo-menu-popover hidden"></div>
+              </div>
             </div>
           </div>
+          <div id="resJsonWarn" class="json-error-hint hidden">⚠ A resposta parece JSON, mas está malformada.</div>
           <pre id="responseBodyPre" class="response-pre">Aguardando envio da requisição...</pre>
         </div>
 
@@ -503,7 +593,7 @@
       <span id="statusStoragePath">Armazenamento 100% Local: ./data/</span>
       <span id="statusNetworkSummary" style="cursor:pointer; text-decoration:underline dotted;" title="Clique para abrir configurações de Proxy e Certificado SSL/TLS">🔓 SSL Ignorado • Sem Proxy</span>
     </div>
-    <span id="statusMessage">Pronto — Carro do Ovo</span>
+    <span id="statusMessage">Pronto — Ovo Frito</span>
   </footer>
 
   <!-- Modal de Edição de Environment (+ Segredos e .env) -->
@@ -612,7 +702,7 @@
   <div id="importModal" class="modal-backdrop hidden">
     <div class="modal modal-large">
       <div class="modal-header">
-        <h3>📥 Importar `.ovo` (Carro do Ovo), `cURL`, OpenAPI 3.0, Postman v2.1 ou `.bru`</h3>
+        <h3>📥 Importar `.ovo` (Ovo Frito), `cURL`, OpenAPI 3.0, Postman v2.1 ou `.bru`</h3>
         <button id="btnCloseImportModal" class="btn-icon">✕</button>
       </div>
       <div class="modal-body">
@@ -628,7 +718,7 @@
           class="code-textarea"
           style="min-height: 220px;"
           spellcheck="false"
-          placeholder="Cole um arquivo .ovo (Carro do Ovo), comando curl -X POST ..., OpenAPI 3.0, .bru ou JSON Postman v2.1"
+          placeholder="Cole um arquivo .ovo (Ovo Frito), comando curl -X POST ..., OpenAPI 3.0, .bru ou JSON Postman v2.1"
         ></textarea>
       </div>
       <div class="modal-footer">
@@ -649,7 +739,7 @@
           <div class="chain-actions">
             <label for="codegenLangSelect">Formato:</label>
             <select id="codegenLangSelect" class="select-input">
-              <option value="ovo">🥚 Carro do Ovo (.ovo — Formato Nativo Local)</option>
+              <option value="ovo">🥚 Ovo Frito (.ovo — Formato Nativo Local)</option>
               <option value="bru">Bruno (.bru — Arquivo Git-Native Local)</option>
               <option value="curl">cURL (Bash / Terminal)</option>
               <option value="fetch">JavaScript (fetch)</option>
@@ -1070,14 +1160,14 @@
   <div id="manualModal" class="modal-backdrop hidden">
     <div class="modal modal-large" style="width:860px; max-width:96vw;">
       <div class="modal-header">
-        <h3>📖 Manual Oficial — Carro do Ovo (100% Local-First API Client)</h3>
+        <h3>📖 Manual Oficial — Ovo Frito (100% Local-First API Client)</h3>
         <button id="btnCloseManualModal" class="btn-icon">✕</button>
       </div>
       <div class="modal-body" style="max-height:76vh; overflow-y:auto; line-height:1.55; font-size:13px;">
         <div class="env-profile-config-card">
           <h4 style="margin:0 0 6px 0; color:var(--accent);">🥚 1. Visão Geral &amp; Filosofia 100% Local-First</h4>
           <p style="margin:0; color:var(--text-secondary);">
-            O <strong>Carro do Ovo</strong> é um cliente de APIs moderno, portátil e <strong>100% offline</strong>. Nenhum dado sai da sua máquina para nuvens de terceiros: todas as suas Collections, Environments, Profiles, Histórico, Cookies e Configurações ficam salvos localmente na pasta <code>./data/</code> e podem ser exportados no formato nativo <strong><code>.ovo</code></strong>.
+            O <strong>Ovo Frito</strong> é um cliente de APIs moderno, portátil e <strong>100% offline</strong>. Nenhum dado sai da sua máquina para nuvens de terceiros: todas as suas Collections, Environments, Profiles, Histórico, Cookies e Configurações ficam salvos localmente na pasta <code>./data/</code> e podem ser exportados no formato nativo <strong><code>.ovo</code></strong>.
           </p>
         </div>
 
@@ -1134,24 +1224,51 @@
 
   <script src="lib/hooks.js"></script>
   <script src="lib/generators-br.js"></script>
+  <script src="lib/escape.js"></script>
   <script src="lib/interpolate.js"></script>
   <script src="lib/assertions.js"></script>
   <script src="lib/schema-ir.js"></script>
   <script src="lib/type-emitters.js"></script>
   <script src="lib/json-table.js"></script>
   <script src="lib/csv.js"></script>
+  <script src="lib/json-highlight.js"></script>
   <script src="lib/content-sniff.js"></script>
   <script src="lib/poller.js"></script>
   <script src="lib/json-schema.js"></script>
   <script src="lib/collection-tree.js"></script>
   <script src="lib/route-matcher.js"></script>
   <script src="lib/stats.js"></script>
-  <script src="app.js"></script>
+  <script src="lib/api-docs.js"></script>
+  <!-- Core modules: ordem load-bearing. state primeiro; layout (init) por último. -->
+  <script src="core/state.js"></script>
+  <script src="core/env.js"></script>
+  <script src="core/tabs.js"></script>
+  <script src="core/importer.js"></script>
+  <script src="core/exporter.js"></script>
+  <script src="core/executor.js"></script>
+  <script src="core/request-editor.js"></script>
+  <script src="core/response.js"></script>
+  <script src="core/sidebar.js"></script>
+  <script src="core/runner.js"></script>
+  <script src="core/modals.js"></script>
+  <script src="core/layout.js"></script>
   <script src="features/type-generator.js"></script>
   <script src="features/response-table.js"></script>
   <script src="features/response-viewers.js"></script>
   <script src="features/auto-poll.js"></script>
   <script src="features/contract-schema.js"></script>
   <script src="features/sidebar-dnd.js"></script>
+  <script src="features/mock-server-ui.js"></script>
+  <script src="features/load-test.js"></script>
+  <script src="features/folder-sync-ui.js"></script>
+  <script src="features/capture-ui.js"></script>
+  <script src="features/api-docs.js"></script>
+  <script src="features/websocket-ui.js"></script>
+  <script src="features/sse-inspector.js"></script>
+  <script src="features/graphql-introspection.js"></script>
+  <script src="features/oauth-pkce.js"></script>
+  <script src="features/vault-ui.js"></script>
+  <script src="features/waterfall.js"></script>
+  <script src="features/var-autocomplete.js"></script>
 </body>
 </html>

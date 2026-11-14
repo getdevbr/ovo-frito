@@ -24,7 +24,7 @@
 
   function serializeRequest(item) {
     const clean = {
-      kind: 'carro-do-ovo-request',
+      kind: 'ovo-frito-request',
       version: 1,
       id: item.id,
       name: item.name || 'Sem Nome',
@@ -75,7 +75,7 @@
       secret: Boolean(v.secret)
     }));
     const clean = {
-      kind: 'carro-do-ovo-collection-meta',
+      kind: 'ovo-frito-collection-meta',
       version: 1,
       id: col.id,
       name: col.name,

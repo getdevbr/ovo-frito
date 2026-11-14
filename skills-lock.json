@@ -49,6 +49,12 @@
       "skillPath": ".agents/skills/openspec-propose/SKILL.md",
       "computedHash": "02b282e7e88189a8e5af7e835bb13267cf717ec9cc8bfed057b748aa17b91fae"
     },
+    "owasp-security": {
+      "source": "agamm/claude-code-owasp",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/owasp-security/SKILL.md",
+      "computedHash": "462278e17593469e65c60a860f724b7d1de94a8e8aed4f2326cffdad5f011ae8"
+    },
     "shadcn": {
       "source": "shadcn-ui/ui",
       "sourceType": "github",

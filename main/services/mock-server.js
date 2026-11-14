@@ -41,6 +41,8 @@ function pickMockResponse(item, reqHeaders) {
   return { status, headers, body, delayMs };
 }
 
+const ALLOWED_BIND_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+
 function createMockServer({ storage, onLog } = {}) {
   const emitter = new EventEmitter();
   let server = null;
@@ -65,6 +67,9 @@ function createMockServer({ storage, onLog } = {}) {
   async function start({ collectionId, port = 4000, host = '127.0.0.1', cors = true, variables = {} }) {
     if (server) {
       await stop();
+    }
+    if (!ALLOWED_BIND_HOSTS.has(String(host))) {
+      throw new CdoError('INVALID_HOST', `Host de bind não permitido: ${host}. Use 127.0.0.1/localhost/::1.`);
     }
     const routesSummary = rebuildRoutes(collectionId, variables);
 
@@ -138,7 +143,8 @@ function createMockServer({ storage, onLog } = {}) {
     const s = server;
     server = null;
     currentConfig = null;
-    await new Promise((resolve) => s.close(resolve));
+    s.closeAllConnections?.();
+    await new Promise((resolve) => s.close(() => resolve()));
     return { ok: true };
   }
 

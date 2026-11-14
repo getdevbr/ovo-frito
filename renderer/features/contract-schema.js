@@ -2,7 +2,7 @@
   'use strict';
 
   function initContractSchema() {
-    const toolbar = document.querySelector('.res-body-toolbar .chain-actions');
+    const toolbar = document.getElementById('resGenerateMenuSlot') || document.querySelector('.res-body-toolbar .chain-actions');
     if (!toolbar || document.getElementById('btnGenerateContract')) return;
 
     const btn = document.createElement('button');

@@ -27,13 +27,32 @@ function resolveSafePath(rootDir, relPath) {
   return target;
 }
 
+function assertNoSymlinkPath(rootDir, targetPath) {
+  const resolvedRoot = path.resolve(rootDir);
+  const rel = path.relative(resolvedRoot, targetPath);
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return;
+  let current = resolvedRoot;
+  for (const part of rel.split(path.sep)) {
+    current = path.join(current, part);
+    try {
+      if (fs.lstatSync(current).isSymbolicLink()) {
+        throw new CdoError('SYMLINK_REJECTED', `Symlink não permitido na sincronização: ${current}`);
+      }
+    } catch (err) {
+      if (err && err.code === 'SYMLINK_REJECTED') throw err;
+      break;
+    }
+  }
+}
+
 function createFolderSync({ storage }) {
   const emitter = new EventEmitter();
   const watchers = new Map();
   const writtenHashes = new Map();
 
-  function writeAtomic(filePath, content) {
+  function writeAtomic(filePath, content, rootDir) {
     const dir = path.dirname(filePath);
+    if (rootDir) assertNoSymlinkPath(rootDir, filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const tmp = `${filePath}.${process.pid}.${Date.now()}.tmp`;
     fs.writeFileSync(tmp, content, 'utf8');
@@ -43,16 +62,16 @@ function createFolderSync({ storage }) {
 
   function flushCollection(collection, dirPath) {
     const metaPath = resolveSafePath(dirPath, 'collection.ovo');
-    writeAtomic(metaPath, ovoSerializer.serializeCollectionMeta(collection));
+    writeAtomic(metaPath, ovoSerializer.serializeCollectionMeta(collection), dirPath);
 
     for (const item of collection.items || []) {
       const folderParts = String(item.folder || '')
-        .split('/')
+        .split(/[\\/]/)
         .map((s) => s.trim())
-        .filter(Boolean);
+        .filter((s) => s && s !== '.' && s !== '..');
       const rel = path.join(...folderParts, `${slugify(item.name)}-${item.id.slice(-4)}.ovo`);
       const itemPath = resolveSafePath(dirPath, rel);
-      writeAtomic(itemPath, ovoSerializer.serializeRequest(item));
+      writeAtomic(itemPath, ovoSerializer.serializeRequest(item), dirPath);
     }
   }
 
@@ -72,10 +91,20 @@ function createFolderSync({ storage }) {
     const watcher = fs.watch(dirPath, { recursive: true }, (_eventType, filename) => {
       if (!filename || !filename.endsWith('.ovo')) return;
       const fullPath = path.resolve(dirPath, filename);
+      if (!fullPath.startsWith(path.resolve(dirPath) + path.sep)) return;
+      try {
+        assertNoSymlinkPath(dirPath, fullPath);
+        if (fs.lstatSync(fullPath).isSymbolicLink()) return;
+      } catch (err) {
+        if (err && err.code === 'SYMLINK_REJECTED') return;
+        return;
+      }
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         if (!fs.existsSync(fullPath)) return;
         try {
+          assertNoSymlinkPath(dirPath, fullPath);
+          if (fs.lstatSync(fullPath).isSymbolicLink()) return;
           const content = fs.readFileSync(fullPath, 'utf8');
           const hash = sha256(content);
           if (writtenHashes.get(fullPath) === hash) {

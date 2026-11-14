@@ -16,17 +16,17 @@ test('smoke: launches Electron, sends GET to local server, sees 200', async () =
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address();
 
+  const electronEnv = { ...process.env, CDO_DATA_DIR: tmpDir };
+  delete electronEnv.ELECTRON_RUN_AS_NODE;
   const electronApp = await electron.launch({
     args: [path.join(__dirname, '..', '..')],
-    env: {
-      ...process.env,
-      CDO_DATA_DIR: tmpDir
-    }
+    env: electronEnv
   });
 
   try {
     const page = await electronApp.firstWindow();
     await page.waitForSelector('#reqUrl');
+    await page.waitForFunction(() => window.CDO?.app?.state, null, { timeout: 15000 });
 
     await page.fill('#reqUrl', `http://127.0.0.1:${port}/ping`);
     await page.click('#btnSend');

@@ -119,7 +119,10 @@ function createStorage({ dataDir } = {}) {
       fs.mkdirSync(dir, { recursive: true });
     }
     const tmpPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
-    fs.writeFileSync(tmpPath, content, 'utf8');
+    fs.writeFileSync(tmpPath, content, { encoding: 'utf8', mode: 0o600 });
+    try {
+      fs.chmodSync(tmpPath, 0o600);
+    } catch {}
     fs.renameSync(tmpPath, filePath);
   }
 
@@ -136,7 +139,7 @@ function createStorage({ dataDir } = {}) {
   function writeStore(key, data) {
     try {
       if (!files[key]) return false;
-      writeAtomic(files[key], JSON.stringify(data, null, 2));
+      writeAtomic(files[key], JSON.stringify(data));
       return true;
     } catch (err) {
       console.error(`Erro ao salvar ${key}:`, err);

@@ -4,6 +4,11 @@ const http = require('http');
 const https = require('https');
 const tls = require('tls');
 const { isTextual } = require('../renderer/lib/content-sniff');
+const { signAwsRequest, parseDigestChallenge, buildDigestAuthorization, randomCnonce } = require('./auth-signers');
+
+function sanitizeHeaderValue(str) {
+  return String(str ?? '').replace(/[\r\n]+/g, ' ').replace(/"/g, "'").trim();
+}
 
 function buildMultipartBuffer(formdataRows) {
   const boundary = `----CarteiroBoundary${Date.now().toString(16)}${Math.random().toString(16).slice(2, 8)}`;
@@ -11,10 +16,10 @@ function buildMultipartBuffer(formdataRows) {
 
   for (const row of formdataRows || []) {
     if (!row || row.enabled === false || !row.key) continue;
-    const fieldName = String(row.key).replace(/"/g, '\\"');
+    const fieldName = sanitizeHeaderValue(row.key);
     if (row.type === 'file' && row.fileBase64) {
-      const fileName = String(row.fileName || 'upload.bin').replace(/"/g, '\\"');
-      const contentType = row.fileContentType || 'application/octet-stream';
+      const fileName = sanitizeHeaderValue(row.fileName || 'upload.bin');
+      const contentType = sanitizeHeaderValue(row.fileContentType || 'application/octet-stream');
       chunks.push(
         Buffer.from(
           `--${boundary}\r\nContent-Disposition: form-data; name="${fieldName}"; filename="${fileName}"\r\nContent-Type: ${contentType}\r\n\r\n`,
@@ -70,7 +75,7 @@ function createHttpEngine({ storage, cookieJar }) {
   function resolveNetworkSettings(requestSpec) {
     const storedSettings = storage.readStore('settings') || {};
     const net = {
-      ignoreCertErrors: storedSettings.ignoreCertErrors !== undefined ? Boolean(storedSettings.ignoreCertErrors) : true,
+      ignoreCertErrors: storedSettings.ignoreCertErrors !== undefined ? Boolean(storedSettings.ignoreCertErrors) : false,
       proxy: {
         enabled: false,
         protocol: 'http',
@@ -128,6 +133,33 @@ function createHttpEngine({ storage, cookieJar }) {
       const isHttps = parsedUrl.protocol === 'https:';
       const method = (requestSpec.method || 'GET').toUpperCase();
       const timeoutMs = requestSpec.timeoutMs || 30000;
+      const elapsedMs = () => Math.round(Number(process.hrtime.bigint() - startTime) / 1e6);
+      const timings = { dnsMs: null, connectMs: null, tlsMs: null, ttfbMs: null, downloadMs: null };
+      let socketReadyAt = 0;
+      let ttfbAt = null;
+      const attachSocketTimings = (req) => {
+        req.on('socket', (socket) => {
+          let lookupAt = null;
+          let connectAt = null;
+          socket.on('lookup', () => {
+            const now = elapsedMs();
+            lookupAt = now;
+            timings.dnsMs = now;
+            if (!socketReadyAt) socketReadyAt = now;
+          });
+          socket.on('connect', () => {
+            const now = elapsedMs();
+            connectAt = now;
+            timings.connectMs = Math.max(0, now - (lookupAt ?? 0));
+            socketReadyAt = now;
+          });
+          socket.on('secureConnect', () => {
+            const now = elapsedMs();
+            timings.tlsMs = connectAt === null ? null : Math.max(0, now - connectAt);
+            socketReadyAt = now;
+          });
+        });
+      };
 
       const headers = {};
       if (Array.isArray(requestSpec.headers)) {
@@ -152,11 +184,17 @@ function createHttpEngine({ storage, cookieJar }) {
           }
         } else if (requestSpec.auth.type === 'oauth2' && requestSpec.auth.token) {
           headers['Authorization'] = `Bearer ${requestSpec.auth.token}`;
+        } else if (requestSpec.auth.type === 'digest' && requestSpec.auth.digestAuthorization) {
+          headers['Authorization'] = String(requestSpec.auth.digestAuthorization);
         }
       }
 
       if (cookieJar && !Object.keys(headers).some((k) => k.toLowerCase() === 'cookie')) {
-        const jarCookieHeader = cookieJar.getHeaderForHost(parsedUrl.hostname);
+        const jarCookieHeader = cookieJar.getHeaderForHost(
+          parsedUrl.hostname,
+          parsedUrl.pathname || '/',
+          parsedUrl.protocol === 'https:'
+        );
         if (jarCookieHeader) {
           headers['Cookie'] = jarCookieHeader;
         }
@@ -214,7 +252,11 @@ function createHttpEngine({ storage, cookieJar }) {
       }
 
       if (!Object.keys(headers).some((k) => k.toLowerCase() === 'user-agent')) {
-        headers['User-Agent'] = 'CarroDoOvo-Local/1.3.0 (100%-Local-First)';
+        headers['User-Agent'] = 'OvoFrito-Local/1.3.0 (100%-Local-First)';
+      }
+
+      if (requestSpec.auth?.type === 'aws_sigv4') {
+        signAwsRequest({ method, url: parsedUrl, headers, bodyBuffer, auth: requestSpec.auth });
       }
 
       const proxyCfg = netConfig.proxy || {};
@@ -240,7 +282,44 @@ function createHttpEngine({ storage, cookieJar }) {
       };
 
       const handleResponse = (res) => {
+        ttfbAt = elapsedMs();
+        timings.ttfbMs = socketReadyAt ? Math.max(0, ttfbAt - socketReadyAt) : ttfbAt;
         const storedSettings = storage.readStore('settings') || {};
+        const authCfg = requestSpec.auth || {};
+        if (authCfg.type === 'digest' && !requestSpec.__digestRetried && res.statusCode === 401) {
+          const challenge = parseDigestChallenge(res.headers?.['www-authenticate']);
+          if (challenge) {
+            res.resume();
+            res.on('end', () => {
+              const uri = parsedUrl.pathname + parsedUrl.search;
+              const digestAuthorization = buildDigestAuthorization({
+                method,
+                uri,
+                username: authCfg.username,
+                password: authCfg.password,
+                challenge,
+                cnonce: randomCnonce()
+              });
+              if (!digestAuthorization) return resolve({
+                ok: false,
+                error: 'Falha ao montar header Digest a partir do desafio 401',
+                status: res.statusCode,
+                statusText: res.statusMessage || '',
+                timeMs: Math.round(Number(process.hrtime.bigint() - startTime) / 1e6),
+                sizeBytes: 0,
+                headers: res.headers || {},
+                cookies: [],
+                body: ''
+              });
+              executeHttpRequest({
+                ...requestSpec,
+                __digestRetried: true,
+                auth: { ...authCfg, digestAuthorization }
+              }).then(resolve);
+            });
+            return;
+          }
+        }
         const maxBytes = Number(requestSpec.maxResponseBytes || storedSettings.maxResponseBytes) || 52428800;
         const chunks = [];
         let totalBytes = 0;
@@ -261,6 +340,7 @@ function createHttpEngine({ storage, cookieJar }) {
         res.on('end', () => {
           const endTime = process.hrtime.bigint();
           const timeMs = Math.round(Number(endTime - startTime) / 1e6);
+          timings.downloadMs = ttfbAt === null ? null : Math.max(0, timeMs - ttfbAt);
           const fullBuffer = Buffer.concat(chunks);
           const contentType = String(res.headers?.['content-type'] || '');
           const textual = isTextual(contentType, fullBuffer);
@@ -276,6 +356,7 @@ function createHttpEngine({ storage, cookieJar }) {
             status: res.statusCode || 0,
             statusText: res.statusMessage || '',
             timeMs,
+            timings: { ...timings, totalMs: timeMs },
             sizeBytes: fullBuffer.length,
             contentType,
             bodyEncoding,
@@ -303,6 +384,7 @@ function createHttpEngine({ storage, cookieJar }) {
           status: 0,
           statusText: 'Network / SSL / Proxy Error',
           timeMs,
+          timings: { ...timings, totalMs: timeMs },
           sizeBytes: 0,
           headers: {},
           cookies: [],
@@ -336,6 +418,7 @@ function createHttpEngine({ storage, cookieJar }) {
           timeout: timeoutMs,
           rejectUnauthorized
         });
+        attachSocketTimings(connectReq);
 
         connectReq.on('connect', (connectRes, socket) => {
           if (connectRes.statusCode !== 200) {
@@ -366,6 +449,7 @@ function createHttpEngine({ storage, cookieJar }) {
             },
             handleResponse
           );
+          attachSocketTimings(req);
 
           req.on('timeout', () => req.destroy(new Error('Tempo limite da requisição excedido (Timeout)')));
           req.on('error', handleError);
@@ -397,6 +481,7 @@ function createHttpEngine({ storage, cookieJar }) {
           },
           handleResponse
         );
+        attachSocketTimings(req);
 
         req.on('timeout', () => req.destroy(new Error('Tempo limite da requisição via Proxy excedido (Timeout)')));
         req.on('error', handleError);
@@ -419,6 +504,7 @@ function createHttpEngine({ storage, cookieJar }) {
       };
 
       const req = transport.request(options, handleResponse);
+      attachSocketTimings(req);
       req.on('timeout', () => {
         req.destroy(new Error('Tempo limite da requisição excedido (Timeout)'));
       });

@@ -9,11 +9,14 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
   function getByPath(obj, pathExpr) {
     if (!obj || !pathExpr) return undefined;
     const parts = String(pathExpr).replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
     let current = obj;
     for (const part of parts) {
+      if (UNSAFE_KEYS.has(String(part))) return undefined;
       if (current == null || typeof current !== 'object') return undefined;
       current = current[part];
     }

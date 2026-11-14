@@ -1,5 +1,31 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+*.exe
+*.blockmap
+*.yml
+
+# Runtime/user data (local-first app state)
 data/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Tests
 test/.tmp/
+test-results/
+playwright-report/
+coverage/
+
+# Logs
 *.log
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+docs/

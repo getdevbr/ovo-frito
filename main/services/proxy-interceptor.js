@@ -5,11 +5,20 @@ const net = require('node:net');
 const { EventEmitter } = require('node:events');
 const { CdoError } = require('../errors');
 
+const ALLOWED_BIND_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+
 function createProxyInterceptor({ httpEngine, maxEntries = 500, maxBodyBytes = 1048576 } = {}) {
   const emitter = new EventEmitter();
   let server = null;
   let currentConfig = null;
   const entries = [];
+  const sockets = new Set();
+
+  function trackSocket(sock) {
+    sockets.add(sock);
+    sock.on('close', () => sockets.delete(sock));
+    sock.on('error', () => sockets.delete(sock));
+  }
 
   function pushEntry(entry) {
     entries.push(entry);
@@ -19,8 +28,26 @@ function createProxyInterceptor({ httpEngine, maxEntries = 500, maxBodyBytes = 1
 
   async function start({ port = 8888, host = '127.0.0.1' } = {}) {
     if (server) await stop();
+    if (!ALLOWED_BIND_HOSTS.has(String(host))) {
+      throw new CdoError('INVALID_HOST', `Host de bind não permitido: ${host}. Use 127.0.0.1/localhost/::1.`);
+    }
+    const boundPort = Number(port);
+
+    const isSelfTarget = (targetHost, targetPort) => {
+      const h = String(targetHost || '').toLowerCase();
+      const p = Number(targetPort) || 0;
+      return p === boundPort && (h === '127.0.0.1' || h === 'localhost' || h === '::1' || h === server?.address?.()?.address);
+    };
 
     server = http.createServer((req, res) => {
+      try {
+        const u = new URL(/^https?:\/\//i.test(req.url) ? req.url : `http://${req.headers.host}${req.url}`);
+        if (isSelfTarget(u.hostname, u.port || (u.protocol === 'https:' ? 443 : 80))) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Loopback ao próprio proxy bloqueado' }));
+          return;
+        }
+      } catch {}
       const startNs = process.hrtime.bigint();
       const chunks = [];
       let total = 0;
@@ -73,13 +100,23 @@ function createProxyInterceptor({ httpEngine, maxEntries = 500, maxBodyBytes = 1
       });
     });
 
+    server.on('connection', trackSocket);
+
     server.on('connect', (req, clientSocket, head) => {
+      trackSocket(clientSocket);
       const [targetHost, targetPortStr] = String(req.url || '').split(':');
       const targetPort = Number(targetPortStr) || 443;
       const startNs = process.hrtime.bigint();
       let bytesTransferred = 0;
 
+      if (isSelfTarget(targetHost, targetPort)) {
+        clientSocket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        clientSocket.destroy();
+        return;
+      }
+
       const serverSocket = net.connect(targetPort, targetHost, () => {
+        trackSocket(serverSocket);
         clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
         if (head && head.length) {
           serverSocket.write(head);
@@ -131,7 +168,12 @@ function createProxyInterceptor({ httpEngine, maxEntries = 500, maxBodyBytes = 1
     const s = server;
     server = null;
     currentConfig = null;
-    await new Promise((resolve) => s.close(resolve));
+    for (const sock of sockets) {
+      try { sock.destroy(); } catch {}
+    }
+    sockets.clear();
+    s.closeAllConnections?.();
+    await new Promise((resolve) => s.close(() => resolve()));
     return { ok: true };
   }
 

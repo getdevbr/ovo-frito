@@ -1,17 +1,20 @@
 {
-  "name": "carro-do-ovo",
-  "productName": "Carro do Ovo — 100% Local-First API Client",
+  "name": "ovo-frito",
+  "productName": "Ovo Frito — 100% Local-First API Client",
   "version": "1.0.0",
-  "description": "Carro do Ovo — Cliente HTTP portátil 100% Local-First com exportação nativa .ovo",
+  "description": "Ovo Frito — Cliente HTTP portátil 100% Local-First com exportação nativa .ovo",
   "main": "main.js",
+  "bin": {
+    "ovo-frito": "./cli.js"
+  },
   "scripts": {
     "start": "electron .",
     "web": "node server-fallback.js",
     "dist": "electron-builder",
-    "test": "node --test \"test/unit/*.test.js\" \"test/integration/*.test.js\"",
-    "test:unit": "node --test \"test/unit/*.test.js\"",
+    "test": "node --test \"test/unit/*.test.js\" \"test/integration/*.test.js\" \"tests/*.test.js\"",
+    "test:unit": "node --test \"test/unit/*.test.js\" \"tests/*.test.js\"",
     "test:integration": "node --test \"test/integration/*.test.js\"",
-    "test:coverage": "node --test --experimental-test-coverage \"test/unit/*.test.js\" \"test/integration/*.test.js\"",
+    "test:coverage": "node --test --experimental-test-coverage \"test/unit/*.test.js\" \"test/integration/*.test.js\" \"tests/*.test.js\"",
     "test:e2e": "playwright test test/e2e"
   },
   "devDependencies": {
@@ -22,7 +25,7 @@
   },
   "build": {
     "appId": "cviniciusdr",
-    "productName": "Carro do Ovo",
+    "productName": "Ovo Frito",
     "win": {
       "target": [
         "nsis",

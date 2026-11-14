@@ -9,8 +9,15 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
+  const FORMULA_PREFIX = /^[=+\-@\t\r]/;
+
+  function sanitizeFormula(str) {
+    return FORMULA_PREFIX.test(str) ? `'${str}` : str;
+  }
+
   function escapeCell(val, delimiter) {
-    const str = val === null || val === undefined ? '' : String(val);
+    let str = val === null || val === undefined ? '' : String(val);
+    str = sanitizeFormula(str);
     if (str.includes('"') || str.includes('\n') || str.includes('\r') || str.includes(delimiter)) {
       return `"${str.replace(/"/g, '""')}"`;
     }
@@ -26,6 +33,7 @@
 
   return {
     escapeCell,
-    toCsv
+    toCsv,
+    sanitizeFormula
   };
 });

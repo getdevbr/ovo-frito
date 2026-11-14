@@ -6,19 +6,16 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { createStorage } = require('./main/storage');
-const { createCookieJar } = require('./main/cookie-jar');
-const { createHttpEngine } = require('./main/http-engine');
+const { createAppContext } = require('./main/bootstrap');
+const { dispatchWebIpc } = require('./main/ipc/http-bridge');
 
-const PORT = process.env.PORT || 3456;
+const PORT = Number(process.env.PORT || 3456);
 const DATA_DIR = process.env.CDO_DATA_DIR
   ? path.resolve(process.env.CDO_DATA_DIR)
   : path.join(__dirname, 'data');
 const RENDERER_DIR = path.join(__dirname, 'renderer');
 
-const storage = createStorage({ dataDir: DATA_DIR });
-const cookieJar = createCookieJar(storage);
-const httpEngine = createHttpEngine({ storage, cookieJar });
+const { storage, httpEngine, vault } = createAppContext({ dataDir: DATA_DIR });
 
 storage.ensurePortableDataDir();
 
@@ -35,37 +32,87 @@ const MIME_TYPES = {
   '.ico': 'image/x-icon'
 };
 
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Cache-Control': 'no-store'
+};
+
+const MAX_BODY_BYTES = 10 * 1024 * 1024;
+const ALLOWED_ORIGINS = new Set([
+  `http://127.0.0.1:${PORT}`,
+  `http://localhost:${PORT}`,
+  `http://[::1]:${PORT}`
+]);
+
+function isAllowedHost(hostHeader) {
+  if (!hostHeader) return false;
+  const host = String(hostHeader).toLowerCase();
+  return (
+    host === `127.0.0.1:${PORT}` ||
+    host === `localhost:${PORT}` ||
+    host === `[::1]:${PORT}` ||
+    host === '127.0.0.1' ||
+    host === 'localhost' ||
+    host === '[::1]'
+  );
+}
+
+function sendJson(res, status, payload) {
+  res.writeHead(status, { 'Content-Type': 'application/json', ...SECURITY_HEADERS });
+  res.end(JSON.stringify(payload));
+}
+
 const server = http.createServer(async (req, res) => {
+  // Anti DNS-rebinding: só aceita Host local
+  if (!isAllowedHost(req.headers.host)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
+    return res.end('Forbidden');
+  }
+
   if (req.method === 'POST' && req.url === '/api/ipc') {
+    // Anti-CSRF: exige Content-Type JSON + header customizado (força preflight CORS)
+    const contentType = String(req.headers['content-type'] || '');
+    if (req.headers['x-ovo-csrf'] !== '1' || !contentType.startsWith('application/json')) {
+      return sendJson(res, 403, { ok: false, error: { code: 'CSRF_REJECTED', message: 'Missing CSRF header' } });
+    }
+    const origin = req.headers.origin;
+    if (origin && !ALLOWED_ORIGINS.has(String(origin))) {
+      return sendJson(res, 403, { ok: false, error: { code: 'ORIGIN_REJECTED', message: 'Origin not allowed' } });
+    }
+
+    let bodySize = 0;
+    let tooLarge = false;
     const chunks = [];
-    req.on('data', (c) => chunks.push(c));
+    req.on('data', (c) => {
+      if (tooLarge) return;
+      bodySize += c.length;
+      if (bodySize > MAX_BODY_BYTES) {
+        tooLarge = true;
+        sendJson(res, 413, { ok: false, error: { code: 'PAYLOAD_TOO_LARGE', message: 'Payload excede 10 MB' } });
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on('error', () => {});
     req.on('end', async () => {
+      if (tooLarge) return;
       try {
         const { channel, payload } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        let result = null;
-        if (channel === 'pm:storage:loadAll') {
-          result = {
-            collections: storage.readStore('collections') || [],
-            environments: storage.readStore('environments') || [],
-            history: storage.readStore('history') || [],
-            settings: storage.readStore('settings') || { theme: 'dark', activeEnvironmentId: '' },
-            sessions: storage.readStore('sessions') || { tabs: [], activeTabId: null, responseCache: {} },
-            cookies: storage.readStore('cookies') || [],
-            dataDir: DATA_DIR
-          };
-        } else if (channel === 'pm:storage:save') {
-          result = { ok: storage.writeStore(payload.key, payload.data) };
-        } else if (channel === 'pm:runtime:request') {
-          result = await httpEngine.executeHttpRequest(payload);
-        } else {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ ok: false, error: { code: 'UNSUPPORTED_IN_WEB_MODE', message: `Canal IPC desconhecido ou não suportado no modo web: ${channel}` } }));
+        const result = await dispatchWebIpc(
+          { storage, httpEngine, vault, dataDir: DATA_DIR },
+          channel,
+          payload
+        );
+        if (result === null) {
+          return sendJson(res, 400, { ok: false, error: { code: 'UNSUPPORTED_IN_WEB_MODE', message: `Canal IPC desconhecido ou não suportado no modo web: ${channel}` } });
         }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(result));
+        sendJson(res, 200, result);
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+        console.error('[server-fallback] /api/ipc error:', err);
+        sendJson(res, 500, { ok: false, error: { code: 'INTERNAL', message: 'Internal server error' } });
       }
     });
     return;
@@ -73,18 +120,22 @@ const server = http.createServer(async (req, res) => {
 
   let reqPath = req.url.split('?')[0];
   if (reqPath === '/') reqPath = '/index.html';
-  const filePath = path.join(RENDERER_DIR, path.normalize(reqPath).replace(/^(\.\.[\/\\])+/, ''));
+  const filePath = path.resolve(RENDERER_DIR, decodeURIComponent(reqPath).replace(/^\/+/, ''));
+  if (!filePath.startsWith(RENDERER_DIR + path.sep)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
+    return res.end('Forbidden');
+  }
 
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const ext = path.extname(filePath);
-    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream', ...SECURITY_HEADERS });
     fs.createReadStream(filePath).pipe(res);
   } else {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...SECURITY_HEADERS });
     res.end('Not found');
   }
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`Carteiro (100% Local-First) rodando em http://127.0.0.1:${PORT}`);
+  console.log(`Ovo Frito (100% Local-First) rodando em http://127.0.0.1:${PORT}`);
 });
