@@ -3,6 +3,7 @@
 const http = require('http');
 const https = require('https');
 const tls = require('tls');
+const { isTextual } = require('../renderer/lib/content-sniff');
 
 function buildMultipartBuffer(formdataRows) {
   const boundary = `----CarteiroBoundary${Date.now().toString(16)}${Math.random().toString(16).slice(2, 8)}`;
@@ -239,13 +240,32 @@ function createHttpEngine({ storage, cookieJar }) {
       };
 
       const handleResponse = (res) => {
+        const storedSettings = storage.readStore('settings') || {};
+        const maxBytes = Number(requestSpec.maxResponseBytes || storedSettings.maxResponseBytes) || 52428800;
         const chunks = [];
-        res.on('data', (chunk) => chunks.push(chunk));
+        let totalBytes = 0;
+        let truncated = false;
+
+        res.on('data', (chunk) => {
+          if (totalBytes + chunk.length > maxBytes) {
+            const remaining = Math.max(0, maxBytes - totalBytes);
+            if (remaining > 0) chunks.push(chunk.subarray(0, remaining));
+            totalBytes = maxBytes;
+            truncated = true;
+            res.destroy();
+            return;
+          }
+          totalBytes += chunk.length;
+          chunks.push(chunk);
+        });
         res.on('end', () => {
           const endTime = process.hrtime.bigint();
           const timeMs = Math.round(Number(endTime - startTime) / 1e6);
           const fullBuffer = Buffer.concat(chunks);
-          const bodyText = fullBuffer.toString('utf8');
+          const contentType = String(res.headers?.['content-type'] || '');
+          const textual = isTextual(contentType, fullBuffer);
+          const bodyEncoding = textual ? 'utf8' : 'base64';
+          const bodyText = fullBuffer.toString(bodyEncoding);
           const setCookieRaw = res.headers?.['set-cookie'] || [];
           const newCookies = cookieJar
             ? cookieJar.updateFromResponse(parsedUrl.hostname, Array.isArray(setCookieRaw) ? setCookieRaw : [setCookieRaw])
@@ -257,6 +277,9 @@ function createHttpEngine({ storage, cookieJar }) {
             statusText: res.statusMessage || '',
             timeMs,
             sizeBytes: fullBuffer.length,
+            contentType,
+            bodyEncoding,
+            truncated,
             headers: res.headers || {},
             cookies: newCookies,
             requestSent: {

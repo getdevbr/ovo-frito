@@ -420,7 +420,10 @@ function getAllAvailableVariables(tab = getActiveTab()) {
     { key: '$randomName', value: 'Nome completo aleatório', scope: 'Dinâmica' },
     { key: '$randomCPF', value: 'CPF válido com dígito verificador (11 dígitos)', scope: 'Dinâmica 🇧🇷' },
     { key: '$randomCNPJ', value: 'CNPJ válido com dígito verificador (14 dígitos)', scope: 'Dinâmica 🇧🇷' },
-    { key: '$randomCelular', value: 'Celular brasileiro (DDD + 9xxxxxxxx)', scope: 'Dinâmica 🇧🇷' }
+    { key: '$randomCelular', value: 'Celular brasileiro (DDD + 9xxxxxxxx)', scope: 'Dinâmica 🇧🇷' },
+    ...(window.CDO?.generatorsBr?.REGISTRY || [])
+      .filter((g) => !['$uuid', '$guid', '$randomEmail', '$randomName', '$randomCPF', '$randomCNPJ', '$randomCelular'].includes(g.token))
+      .map((g) => ({ key: g.token, value: g.label, scope: 'Dinâmica 🇧🇷' }))
   ].forEach((d) => list.push({ ...d, rawValue: d.value }));
 
   return list;
@@ -476,6 +479,9 @@ function interpolateVariables(str) {
     if (k === '$randomCPF') return generateRandomCpf();
     if (k === '$randomCNPJ') return generateRandomCnpj();
     if (k === '$randomCelular') return generateRandomCelular();
+    if (window.CDO?.generatorsBr?.GENERATOR_MAP && typeof window.CDO.generatorsBr.GENERATOR_MAP[k] === 'function') {
+      return String(window.CDO.generatorsBr.GENERATOR_MAP[k]());
+    }
 
     if (k.startsWith('@')) {
       const expr = k.slice(1).trim();
