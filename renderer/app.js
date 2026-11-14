@@ -6089,6 +6089,24 @@ async function init() {
   });
 
   renderAll();
+
+  window.CDO = window.CDO || {};
+  window.CDO.hookBus = window.CDO.hookBus || window.CDO.hooks.createHookBus();
+  window.CDO.app = {
+    state,
+    getActiveTab,
+    getActiveEnvironment,
+    createBlankTab,
+    renderAll,
+    renderSidebar,
+    renderResponse,
+    persistStore,
+    saveSessionState,
+    interpolateVariables,
+    executeTabRequestObject,
+    sendActiveRequest
+  };
+  window.CDO.hookBus.emit('app:ready', { state });
 }
 
 window.addEventListener('DOMContentLoaded', init);

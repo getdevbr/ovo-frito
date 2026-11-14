@@ -7,10 +7,16 @@
   "scripts": {
     "start": "electron .",
     "web": "node server-fallback.js",
-	"dist":"electron-builder"
+    "dist": "electron-builder",
+    "test": "node --test \"test/unit/*.test.js\" \"test/integration/*.test.js\"",
+    "test:unit": "node --test \"test/unit/*.test.js\"",
+    "test:integration": "node --test \"test/integration/*.test.js\"",
+    "test:coverage": "node --test --experimental-test-coverage \"test/unit/*.test.js\" \"test/integration/*.test.js\"",
+    "test:e2e": "playwright test test/e2e"
   },
   "devDependencies": {
     "@electron-forge/cli": "^8.0.1",
+    "@playwright/test": "^1.65.1",
     "electron": "^35.0.0",
     "electron-builder": "^26.18.0"
   },
