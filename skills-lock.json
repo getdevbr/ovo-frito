@@ -1,0 +1,65 @@
+{
+  "version": 2,
+  "skills": {
+    "electron": {
+      "source": "full-stack-skills/electron-skills",
+      "sourceType": "github",
+      "skillPath": "skills/electron/SKILL.md",
+      "computedHash": "c0e282d2169b9127f885400f391814eb5a3b1f975a7a6e6340e4a0314c4b8ae5"
+    },
+    "electron-egg": {
+      "source": "full-stack-skills/electron-skills",
+      "sourceType": "github",
+      "skillPath": "skills/electron-egg/SKILL.md",
+      "computedHash": "d1790452510063e280e48bc6c1956e5386e8edf721dd9259a93907e6675d4c7e"
+    },
+    "migrate-radix-to-base": {
+      "source": "shadcn-ui/ui",
+      "sourceType": "github",
+      "skillPath": "skills/migrate-radix-to-base/SKILL.md",
+      "computedHash": "7644de21e9aa533904def58c30f809ae6574c3cabc6396ab8b03dee751e8ffbe"
+    },
+    "node": {
+      "source": "mcollina/skills",
+      "sourceType": "github",
+      "skillPath": "skills/node/SKILL.md",
+      "computedHash": "00efdd7392ec937a8db0a33f5562a74af20e67504002ad18c83996b1726596e6"
+    },
+    "openspec-apply-change": {
+      "source": "full-stack-skills/electron-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/openspec-apply-change/SKILL.md",
+      "computedHash": "0a0307e447211b8c9e30aab39f7521ddc14c68458ee84982d84cc28f15bf920d"
+    },
+    "openspec-archive-change": {
+      "source": "full-stack-skills/electron-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/openspec-archive-change/SKILL.md",
+      "computedHash": "6d066b645b8328a96588934bdab235c69f5567b5894481efe55e789cb0a79b59"
+    },
+    "openspec-explore": {
+      "source": "full-stack-skills/electron-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/openspec-explore/SKILL.md",
+      "computedHash": "ab4d00600960f050f7c01a231e03cc3efa6bb1f2a0591cf24aa1ede3915327eb"
+    },
+    "openspec-propose": {
+      "source": "full-stack-skills/electron-skills",
+      "sourceType": "github",
+      "skillPath": ".agents/skills/openspec-propose/SKILL.md",
+      "computedHash": "02b282e7e88189a8e5af7e835bb13267cf717ec9cc8bfed057b748aa17b91fae"
+    },
+    "shadcn": {
+      "source": "shadcn-ui/ui",
+      "sourceType": "github",
+      "skillPath": "skills/shadcn/SKILL.md",
+      "computedHash": "388962d16c7a4f13aaeee0d8f128e50a87df8553d42ef7988c39c0e1c74a40e8"
+    },
+    "upgrade-link": {
+      "source": "full-stack-skills/electron-skills",
+      "sourceType": "github",
+      "skillPath": "skills/upgrade-link/SKILL.md",
+      "computedHash": "c4312c3f027f20942867c16f0e09e2f2d10831606a6e94be54bf80a88781917d"
+    }
+  }
+}

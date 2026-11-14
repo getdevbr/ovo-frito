@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carro do Ovo — API Client</title>
+  <link rel="icon" type="image/png" href="data:image/png;base64,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" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Top Header Bar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <!-- Ícone ajustado a partir de C:\Users\Aline\Downloads\egg.png -->
+      <img
+        id="brandEggIcon"
+        class="brand-logo-img"
+        width="34"
+        height="34"
+        alt=""
+        title="Carro do Ovo — 100% Local-First API Client (.ovo)"
+        src="data:image/png;base64,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"
+      />
+      <span class="brand-title">Carro do Ovo</span>
+      <button id="btnOpenImportModal" class="btn-small ml-8" title="Importar Collection (.ovo, cURL, OpenAPI, Postman, .bru)">📥 Importar</button>
+      <button id="btnOpenCommandPalette" class="btn-small" title="Busca Rápida e Paleta de Comandos (Ctrl+K)">🔍 Ctrl+K</button>
+      <button id="btnOpenDevToolboxModal" class="btn-small" title="Caixa de Ferramentas Dev Offline (Base64, URL Encode, SHA-256, HMAC, Timestamps e Geradores)">🧰 Utilitários</button>
+      <button id="btnOpenManualModal" class="btn-small" title="Abrir Manual Completo do Carro do Ovo (Atalhos, Variáveis, Chaining, Proxy/mTLS e .ovo)">📖 Manual</button>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="env-selector-wrap">
+        <label for="envSelect" class="sr-only">Environment</label>
+        <select id="envSelect" class="env-select" title="Selecionar Environment ativo">
+          <option value="">No Environment</option>
+        </select>
+        <select id="envProfileQuickSelect" class="env-profile-select" title="Selecionar ou criar Profile para este Environment">
+          <option value="">Sem Profile</option>
+          <option value="__create__">+ Criar Profile...</option>
+        </select>
+        <input id="envQuickColorPicker" type="color" class="env-color-picker hidden" value="#f75f5f" title="Alterar cor do contorno da requisição" />
+        <button id="btnManageEnv" class="btn-icon" title="Editar variáveis e profiles deste Environment">✎</button>
+      </div>
+
+      <button id="btnOpenNetworkModal" class="btn-small" title="Abrir Menu de Configurações (Disposição das Janelas, Tema, Proxy, Certificado SSL e Cookies)">⚙ Configurações</button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <div id="workspaceContainer" class="workspace">
+    <!-- Sidebar unificada com TabsList no topo (Economiza 62px de largura da coluna lateral antiga) -->
+    <aside id="appSidebar" class="sidebar">
+      <nav class="sidebar-nav" role="tablist">
+        <button class="sidebar-nav-btn active" data-sidebar-tab="collections" title="Collections">
+          <span>📁 Collections</span>
+        </button>
+        <button class="sidebar-nav-btn" data-sidebar-tab="environments" title="Environments &amp; Profiles">
+          <span>🌐 Environments</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-panel">
+        <!-- Collections Panel -->
+        <div id="sidebar-collections" class="sidebar-content active">
+          <div class="sidebar-toolbar">
+            <span class="sidebar-heading">Collections</span>
+            <button id="btnNewCollection" class="btn-small">+ Collection</button>
+          </div>
+          <div class="sidebar-search-wrap">
+            <input id="sidebarSearchInput" type="text" class="kv-input" placeholder="Filtrar requisições (Ctrl+K)..." />
+          </div>
+          <div id="collectionsList" class="tree-list"></div>
+        </div>
+
+        <!-- Environments Panel -->
+        <div id="sidebar-environments" class="sidebar-content">
+          <div class="sidebar-toolbar">
+            <span class="sidebar-heading">Environments &amp; Profiles</span>
+            <button id="btnNewEnvironment" class="btn-small">+ Env</button>
+          </div>
+          <div id="environmentsList" class="tree-list"></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Barra de Redimensionamento do Menu Lateral (Sidebar) -->
+    <div id="sidebarResizer" class="resizer-vertical" title="Arraste para redimensionar o menu lateral (duplo-clique para recolher/expandir)"></div>
+
+    <!-- Right Workbench -->
+    <main class="workbench">
+      <!-- Request Tabs Bar -->
+      <div class="tabs-bar" style="position:relative;">
+        <div id="requestTabs" class="request-tabs"></div>
+        <button id="btnNewTab" class="btn-new-tab" title="Nova aba de requisição">+</button>
+        <button id="btnOpenTabsActionsMenu" class="btn-new-tab" title="Opções de fechamento de abas (ou clique com botão direito em qualquer aba)" style="width:28px; font-size:12px;">▾</button>
+
+        <!-- Menu de Contexto / Ações das Abas Abertas -->
+        <div id="tabsContextMenu" class="disposition-popover hidden" style="min-width:230px; padding:6px; z-index:1500;">
+          <div class="disposition-section-title" id="tabsContextMenuTitle">Gerenciar Abas Abertas</div>
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <button id="btnContextPinTab" class="btn-small" style="text-align:left;" data-tab-bulk-action="toggle-pin">📌 Fixar / Desafixar esta aba</button>
+            <button class="btn-small" style="text-align:left;" data-tab-bulk-action="copy-curl">📋 Copiar esta aba como cURL</button>
+            <button class="btn-small" style="text-align:left;" data-tab-bulk-action="duplicate">⧉ Duplicar esta aba</button>
+            <button class="btn-small" style="text-align:left;" data-tab-bulk-action="close-others">Fechar todas menos essa (preserva fixadas)</button>
+            <button class="btn-small" style="text-align:left;" data-tab-bulk-action="close-right">⇥ Fechar todas à direita</button>
+            <button class="btn-small" style="text-align:left;" data-tab-bulk-action="close-left">⇤ Fechar todas à esquerda</button>
+            <button class="btn-small btn-danger-ghost" style="text-align:left;" data-tab-bulk-action="close-all">✕ Fechar todas (preserva fixadas)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Request Bar -->
+      <div class="request-header">
+        <span id="reqProfileContourBadge" class="req-profile-contour-badge hidden" title="Profile do Environment Ativo"></span>
+        <input id="reqNameInput" type="text" class="req-name-input" placeholder="Nome da requisição..." />
+        <div class="request-header-actions">
+          <button id="btnOpenCompareProfileModal" class="btn-secondary" title="Comparar resposta desta requisição entre dois Profiles ou Environments (Diff A/B)">⚖️ Comparar Profile/Env</button>
+          <button id="btnQuickCopyCurl" class="btn-secondary" title="Copiar requisição como comando cURL em 1 clique">📋 cURL</button>
+          <button id="btnOpenCodeModal" class="btn-secondary" title="Exportar arquivo nativo .ovo, .bru ou gerar Snippet de Código">&lt;/&gt; Code / .ovo</button>
+          <button id="btnSaveToCollection" class="btn-secondary" title="Salvar na Collection (Ctrl+S)">💾 Salvar</button>
+        </div>
+      </div>
+
+      <div class="url-bar" style="position:relative;">
+        <div class="url-input-group">
+          <select id="reqMethod" class="method-select" data-method="GET">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="PATCH">PATCH</option>
+            <option value="DELETE">DELETE</option>
+            <option value="HEAD">HEAD</option>
+            <option value="OPTIONS">OPTIONS</option>
+          </select>
+          <input
+            id="reqUrl"
+            type="text"
+            class="url-input"
+            autocomplete="off"
+            placeholder="https://api.exemplo.com/recurso ou {{base_url}}/posts (pressione Ctrl+Espaço ou digite {{ para autocompletar)..."
+          />
+          <button id="btnToggleVarPicker" type="button" class="btn-small" style="border:none; border-left:1px solid var(--border-color); border-radius:0; height:36px;" title="Listar e inserir variáveis disponíveis (Atalho: Ctrl+Espaço em qualquer campo)">{{x}}</button>
+        </div>
+        <button id="btnSend" class="btn-send">Send</button>
+
+        <!-- Popover de Autocomplete de Variáveis {{...}} -->
+        <div id="varAutocompletePopover" class="disposition-popover hidden" style="left:110px; right:auto; top:44px; min-width:360px; max-width:520px; max-height:280px; overflow-y:auto; z-index:1200;"></div>
+      </div>
+
+      <!-- Barra de Preview da URL Interpolada em Tempo Real -->
+      <div id="urlInterpolatedPreviewBar" class="hidden" style="padding:4px 12px; font-size:11px; font-family:var(--font-mono); background:var(--bg-tertiary); border-bottom:1px solid var(--border-color); color:var(--text-secondary); display:flex; align-items:center; justify-content:space-between; gap:8px;">
+        <span id="urlInterpolatedPreviewText" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"></span>
+        <span id="urlSecurityLockIndicator" class="hidden" style="color:#f59e0b; font-weight:600; flex-shrink:0;">🛡️ Confirmação ativa neste Profile</span>
+      </div>
+
+      <!-- Painel Dividido Redimensionável: Request Editor & Response Viewer -->
+      <div id="workbenchSplitContainer" class="workbench-split">
+      <!-- Request Configuration Editors -->
+      <section id="requestEditorPane" class="request-editor">
+        <div class="subtabs">
+          <button class="subtab active" data-req-tab="params">Params <span id="badgeParams" class="badge"></span></button>
+          <button class="subtab" data-req-tab="auth">Authorization</button>
+          <button class="subtab" data-req-tab="headers">Headers <span id="badgeHeaders" class="badge"></span></button>
+          <button class="subtab" data-req-tab="body">Body <span id="badgeBody" class="badge-dot"></span></button>
+          <button class="subtab" data-req-tab="tests">Tests &amp; Captura <span id="badgeTests" class="badge"></span></button>
+          <button class="subtab" data-req-tab="scripts">Scripts (pm.*) <span id="badgeScripts" class="badge-dot"></span></button>
+          <div class="subtabs-right-actions">
+            <button id="btnSwapFromReq" class="btn-panel-ctrl" title="Inverter posição Request ⇄ Response">⇄</button>
+            <button id="btnMaxReqPane" class="btn-panel-ctrl" title="Maximizar / Restaurar janela de Request">⛶</button>
+          </div>
+        </div>
+
+        <!-- Query Params Tab -->
+        <div id="req-tab-params" class="req-tab-pane active">
+          <div class="pane-header">
+            <span>Query Parameters</span>
+            <div class="chain-actions">
+              <button id="btnBulkEditParams" class="btn-small" title="Alternar entre Tabela e Edição em Bloco (chave=valor por linha)">📝 Bulk Edit</button>
+              <button id="btnAddParam" class="btn-small">+ Adicionar</button>
+            </div>
+          </div>
+          <div id="paramsTable" class="kv-table"></div>
+          <textarea
+            id="paramsBulkTextarea"
+            class="code-textarea hidden"
+            style="min-height:140px;"
+            spellcheck="false"
+            placeholder="Formato: chave=valor (1 por linha). Inicie a linha com # para desabilitar:&#10;_limit=10&#10;page=1&#10;# debug=true"
+          ></textarea>
+        </div>
+
+        <!-- Authorization Tab -->
+        <div id="req-tab-auth" class="req-tab-pane">
+          <div class="auth-row">
+            <label for="authType">Tipo de Autenticação:</label>
+            <select id="authType" class="select-input">
+              <option value="none">No Auth</option>
+              <option value="inherit">🔗 Herdar da Collection</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="basic">Basic Auth</option>
+              <option value="apikey">API Key</option>
+              <option value="oauth2">OAuth 2.0 (Local Helper)</option>
+            </select>
+          </div>
+          <div id="authInheritPane" class="auth-fields hidden">
+            <div class="env-profile-config-card" style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+              <span id="authInheritSummaryText" style="font-size:12px;">Herdando autenticação configurada na Collection.</span>
+              <button id="btnOpenColConfigFromAuth" type="button" class="btn-small">⚙ Configurar Auth da Collection</button>
+            </div>
+          </div>
+          <div id="authBearerPane" class="auth-fields hidden">
+            <label>Token (suporta <code>{{variavel}}</code> ou <code>{{@NomeDaRequest.json.token}}</code>):</label>
+            <input id="authBearerToken" type="text" class="text-input" placeholder="Ex: {{api_token}} ou {{@Login.json.token}}" />
+          </div>
+          <div id="jwtInspectorBox" class="chain-box hidden" style="margin-top:8px; max-width:100%;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <div class="chain-box-title">🔍 Inspetor JWT Local (100% Offline)</div>
+              <span id="jwtStatusBadge" class="badge"></span>
+            </div>
+            <div class="chain-grid" style="grid-template-columns: 1fr 2fr; gap:8px;">
+              <div>
+                <label>Header Decodificado:</label>
+                <pre id="jwtHeaderPre" class="response-pre" style="min-height:80px; max-height:140px; padding:8px; font-size:11px;"></pre>
+              </div>
+              <div>
+                <label>Payload / Claims Decodificados:</label>
+                <pre id="jwtPayloadPre" class="response-pre" style="min-height:80px; max-height:140px; padding:8px; font-size:11px;"></pre>
+              </div>
+            </div>
+          </div>
+          <div id="authBasicPane" class="auth-fields hidden">
+            <label>Username:</label>
+            <input id="authBasicUser" type="text" class="text-input" placeholder="Usuário" />
+            <label>Password:</label>
+            <input id="authBasicPass" type="password" class="text-input" placeholder="Senha" />
+          </div>
+          <div id="authApiKeyPane" class="auth-fields hidden">
+            <label>Chave (Key):</label>
+            <input id="authApiKeyName" type="text" class="text-input" placeholder="Ex: X-API-Key" />
+            <label>Valor (Value — suporta <code>{{variavel}}</code> ou <code>{{@NomeDaRequest.json.token}}</code>):</label>
+            <input id="authApiKeyValue" type="text" class="text-input" placeholder="Ex: {{api_token}} ou {{@Login.json.token}}" />
+            <label>Adicionar em:</label>
+            <select id="authApiKeyAddTo" class="select-input">
+              <option value="header">Header</option>
+              <option value="query">Query Params</option>
+            </select>
+          </div>
+          <div id="authOAuth2Pane" class="auth-fields hidden">
+            <div class="chain-grid">
+              <div>
+                <label>Grant Type:</label>
+                <select id="oauthGrantType" class="select-input w-full">
+                  <option value="client_credentials">Client Credentials</option>
+                  <option value="password">Password Credentials</option>
+                </select>
+              </div>
+              <div>
+                <label>Access Token URL:</label>
+                <input id="oauthTokenUrl" type="text" class="text-input" placeholder="Ex: {{base_url}}/oauth/token" />
+              </div>
+              <div>
+                <label>Client ID:</label>
+                <input id="oauthClientId" type="text" class="text-input" placeholder="client_id" />
+              </div>
+              <div>
+                <label>Client Secret:</label>
+                <input id="oauthClientSecret" type="password" class="text-input" placeholder="client_secret" />
+              </div>
+            </div>
+            <div class="chain-actions">
+              <button id="btnFetchOAuthToken" class="btn-small">🔑 Obter Access Token Localmente</button>
+              <input id="oauthAccessTokenInput" type="text" class="text-input" style="flex:1;" placeholder="Access Token obtido (ou {{oauth_access_token}})" />
+            </div>
+          </div>
+
+          <!-- Painel de Request Chaining (Obter Token de outra Request / Sessão) -->
+          <div id="authChainBox" class="chain-box hidden">
+            <div class="chain-box-title">🔗 Usar Token / Variável de outra Request ou Sessão</div>
+            <div class="chain-grid">
+              <div>
+                <label>1. Request de origem (Abas / Sessões):</label>
+                <select id="chainSourceReqSelect" class="select-input w-full"></select>
+              </div>
+              <div>
+                <label>2. Campo da resposta (JSON / Header):</label>
+                <select id="chainSourceFieldSelect" class="select-input w-full"></select>
+              </div>
+            </div>
+            <div class="chain-actions">
+              <button id="btnBindChainRef" class="btn-small">⚡ Vincular Dinâmico (<code>{{@Req.json.campo}}</code>)</button>
+              <button id="btnBindEnvToken" class="btn-small">💾 Salvar em <code>{{api_token}}</code> e Usar</button>
+              <span id="chainPreviewValue" class="chain-preview"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Headers Tab -->
+        <div id="req-tab-headers" class="req-tab-pane">
+          <div class="pane-header">
+            <span>HTTP Headers</span>
+            <div class="chain-actions">
+              <button id="btnBulkEditHeaders" class="btn-small" title="Alternar entre Tabela e Edição em Bloco (Chave: Valor por linha)">📝 Bulk Edit</button>
+              <button id="btnAddHeader" class="btn-small">+ Adicionar Header</button>
+            </div>
+          </div>
+          <div id="headersTable" class="kv-table"></div>
+          <textarea
+            id="headersBulkTextarea"
+            class="code-textarea hidden"
+            style="min-height:140px;"
+            spellcheck="false"
+            placeholder="Formato: Chave: Valor (1 por linha). Inicie a linha com # para desabilitar:&#10;Accept: application/json&#10;X-Correlation-Id: {{$guid}}&#10;# X-Debug: 1"
+          ></textarea>
+        </div>
+
+        <!-- Body Tab -->
+        <div id="req-tab-body" class="req-tab-pane">
+          <div class="body-mode-bar">
+            <label><input type="radio" name="bodyMode" value="none" checked /> none</label>
+            <label><input type="radio" name="bodyMode" value="json" /> JSON</label>
+            <label><input type="radio" name="bodyMode" value="graphql" /> GraphQL</label>
+            <label><input type="radio" name="bodyMode" value="raw" /> raw</label>
+            <label><input type="radio" name="bodyMode" value="urlencoded" /> form-urlencoded</label>
+            <label><input type="radio" name="bodyMode" value="formdata" /> multipart</label>
+            <button id="btnBeautifyJson" class="btn-small ml-auto hidden">Formatar JSON</button>
+          </div>
+          <div id="bodyRawWrap" class="body-editor-wrap hidden">
+            <textarea id="bodyRawInput" class="code-textarea" spellcheck="false" placeholder='{"chave": "valor", "requestId": "{{$guid}}"}'></textarea>
+          </div>
+          <div id="bodyGraphqlWrap" class="body-editor-wrap hidden">
+            <div class="tests-split" style="flex:1; min-height:0;">
+              <div class="tests-col" style="min-height:0;">
+                <div class="pane-header"><span>GraphQL Query / Mutation</span></div>
+                <textarea id="graphqlQueryInput" class="code-textarea" spellcheck="false" placeholder="query GetPosts($limit: Int) {&#10;  posts(limit: $limit) {&#10;    id&#10;    title&#10;  }&#10;}"></textarea>
+              </div>
+              <div class="inner-resizer-vertical" title="Arraste para redimensionar Query / Variables"></div>
+              <div class="tests-col" style="min-height:0;">
+                <div class="pane-header"><span>GraphQL Variables (JSON)</span></div>
+                <textarea id="graphqlVarsInput" class="code-textarea" spellcheck="false" placeholder='{&#10;  "limit": 5&#10;}'></textarea>
+              </div>
+            </div>
+          </div>
+          <div id="bodyUrlEncodedWrap" class="body-editor-wrap hidden">
+            <div class="pane-header">
+              <span>Form URL-Encoded</span>
+              <button id="btnAddFormRow" class="btn-small">+ Adicionar Campo</button>
+            </div>
+            <div id="urlencodedTable" class="kv-table"></div>
+          </div>
+          <div id="bodyFormDataWrap" class="body-editor-wrap hidden">
+            <div class="pane-header">
+              <span>Multipart Form-Data (Texto + Upload de Arquivos Locais)</span>
+              <button id="btnAddMultipartRow" class="btn-small">+ Adicionar Campo / Arquivo</button>
+            </div>
+            <div id="formdataTable" class="kv-table"></div>
+          </div>
+          <div id="bodyNoneWrap" class="empty-hint">Esta requisição não possui corpo (Body).</div>
+        </div>
+
+        <!-- Tests & Captura Tab (Estilo Bruno + Insomnia) -->
+        <div id="req-tab-tests" class="req-tab-pane">
+          <div class="tests-split">
+            <div class="tests-col">
+              <div class="pane-header">
+                <span>✅ Assertions</span>
+                <button id="btnAddAssertion" class="btn-small">+ Assertion</button>
+              </div>
+              <div id="assertionsTable" class="kv-table"></div>
+            </div>
+            <div class="inner-resizer-vertical" title="Arraste para redimensionar Assertions / Captura"></div>
+            <div class="tests-col">
+              <div class="pane-header">
+                <span>🔗 Capturar para Environment</span>
+                <button id="btnAddCapture" class="btn-small">+ Captura</button>
+              </div>
+              <div id="capturesTable" class="kv-table"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scripts (pm.*) Tab (Compatível com Postman Pre-request & Post-response Scripts) -->
+        <div id="req-tab-scripts" class="req-tab-pane">
+          <div class="tests-split" style="flex:1; min-height:0;">
+            <div class="tests-col" style="min-height:0;">
+              <div class="pane-header">
+                <span>⚡ Pre-request Script (<code>pm.environment.set</code>, <code>pm.request.headers.add</code>)</span>
+              </div>
+              <textarea
+                id="preRequestScriptInput"
+                class="code-textarea"
+                spellcheck="false"
+                placeholder="// Executa antes de enviar a requisição&#10;// pm.environment.set('timestamp_now', Date.now());"
+              ></textarea>
+            </div>
+            <div class="inner-resizer-vertical" title="Arraste para redimensionar Pre-request / Post-response"></div>
+            <div class="tests-col" style="min-height:0;">
+              <div class="pane-header">
+                <span>🧪 Post-response / Tests Script (<code>pm.test</code>, <code>pm.expect</code>, <code>pm.response.json()</code>)</span>
+                <button id="btnInsertSamplePmScript" class="btn-small">+ Exemplo pm.test</button>
+              </div>
+              <textarea
+                id="postResponseScriptInput"
+                class="code-textarea"
+                spellcheck="false"
+                placeholder="pm.test('Status code is 200', () => {&#10;  pm.response.to.have.status(200);&#10;});"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Barra de Redimensionamento Request / Response -->
+      <div id="workbenchResizer" class="resizer-horizontal" title="Arraste para redimensionar Request / Response (duplo-clique para 50%/50%)"></div>
+
+      <!-- Response Viewer -->
+      <section id="responseViewerPane" class="response-viewer">
+        <div class="response-topbar">
+          <div class="subtabs">
+            <button class="subtab active" data-res-tab="body">Body</button>
+            <button class="subtab" data-res-tab="headers">Headers <span id="badgeResHeaders" class="badge"></span></button>
+            <button class="subtab" data-res-tab="cookies">Cookies <span id="badgeResCookies" class="badge"></span></button>
+            <button class="subtab" data-res-tab="tests">Test Results <span id="badgeResTests" class="badge"></span></button>
+            <button class="subtab" data-res-tab="inspector">📤 Enviado &amp; Console <span id="badgeResInspector" class="badge"></span></button>
+            <button class="subtab" data-res-tab="history">🕒 Histórico da Req <span id="badgeResHistory" class="badge"></span></button>
+          </div>
+          <div class="response-topbar-right">
+            <div id="responseMeta" class="response-meta">
+              <span class="meta-placeholder">Envie uma requisição para inspecionar a resposta</span>
+            </div>
+            <div class="subtabs-right-actions">
+              <button id="btnSwapFromRes" class="btn-panel-ctrl" title="Inverter posição Request ⇄ Response">⇄</button>
+              <button id="btnMaxResPane" class="btn-panel-ctrl" title="Maximizar / Restaurar janela de Response">⛶</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="res-tab-body" class="res-tab-pane active">
+          <div class="res-body-toolbar">
+            <div class="btn-group">
+              <button id="btnViewPretty" class="btn-toggle active">Pretty</button>
+              <button id="btnViewRaw" class="btn-toggle">Raw</button>
+            </div>
+            <input
+              id="resJsonFilterInput"
+              type="text"
+              class="kv-input"
+              style="max-width: 260px; padding: 3px 8px;"
+              placeholder="🔍 Filtrar caminho JSON ou texto (ex: 0.title)..."
+            />
+            <div class="chain-actions">
+              <button id="btnCopyResponse" class="btn-small" title="Copiar corpo da resposta">📋 Copiar</button>
+              <button id="btnDownloadResponse" class="btn-small" title="Baixar resposta como arquivo (.json / .txt)">💾 Baixar</button>
+            </div>
+          </div>
+          <pre id="responseBodyPre" class="response-pre">Aguardando envio da requisição...</pre>
+        </div>
+
+        <div id="res-tab-headers" class="res-tab-pane">
+          <div id="responseHeadersList" class="res-headers-grid"></div>
+        </div>
+
+        <div id="res-tab-cookies" class="res-tab-pane">
+          <div id="responseCookiesList" class="res-headers-grid"></div>
+        </div>
+
+        <div id="res-tab-tests" class="res-tab-pane">
+          <div id="responseTestsList" class="res-tests-list">
+            <div class="empty-hint">Nenhuma assertion ou captura executada ainda.</div>
+          </div>
+        </div>
+
+        <div id="res-tab-inspector" class="res-tab-pane">
+          <div class="pane-header">
+            <span>🖥 Console de Scripts (<code>console.log</code> / <code>warn</code> / <code>error</code> em Pre-Request e Post-Response)</span>
+            <button id="btnClearScriptConsole" class="btn-small">Limpar Console</button>
+          </div>
+          <div id="scriptConsoleLogsList" class="res-tests-list" style="max-height:140px; overflow-y:auto; margin-bottom:8px;">
+            <div class="empty-hint">Nenhuma saída de <code>console.log()</code> registrada nos scripts desta requisição.</div>
+          </div>
+          <div class="pane-header">
+            <span>📤 Requisição Real Enviada na Rede (Pós-Interpolação de Variáveis, Auth, Proxy &amp; mTLS)</span>
+          </div>
+          <pre id="responseInspectorPre" class="response-pre" style="flex:1;">Envie uma requisição para inspecionar os headers, URL final e payload efetivamente enviados após interpolação.</pre>
+        </div>
+
+        <div id="res-tab-history" class="res-tab-pane">
+          <div class="pane-header">
+            <span id="resHistoryTitleSpan">🕒 Histórico de Execuções Individual desta Requisição</span>
+            <button id="btnClearReqHistoryInline" class="btn-small btn-danger-ghost">Limpar Histórico desta Req</button>
+          </div>
+          <div id="requestHistoryList" class="res-tests-list">
+            <div class="empty-hint">Nenhuma execução registrada para esta requisição ainda.</div>
+          </div>
+        </div>
+      </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer Statusbar -->
+  <footer class="statusbar">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <span id="statusStoragePath">Armazenamento 100% Local: ./data/</span>
+      <span id="statusNetworkSummary" style="cursor:pointer; text-decoration:underline dotted;" title="Clique para abrir configurações de Proxy e Certificado SSL/TLS">🔓 SSL Ignorado • Sem Proxy</span>
+    </div>
+    <span id="statusMessage">Pronto — Carro do Ovo</span>
+  </footer>
+
+  <!-- Modal de Edição de Environment (+ Segredos e .env) -->
+  <div id="envModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3 id="envModalTitle">🌐 Gerenciar Environment Local &amp; Segredos (`.env`)</h3>
+        <button id="btnCloseEnvModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="chain-grid">
+          <div>
+            <label>Nome do Environment:</label>
+            <input id="envNameInput" type="text" class="text-input" placeholder="Ex: Produção / Homologação / Dev" />
+          </div>
+          <div class="chain-actions" style="align-self: flex-end;">
+            <label class="btn-small" style="cursor:pointer;">
+              📥 Importar .env
+              <input id="importEnvFileInput" type="file" accept=".env,text/plain" class="hidden" />
+            </label>
+            <button id="btnExportEnvFile" class="btn-small">📤 Exportar .env</button>
+          </div>
+        </div>
+
+        <!-- Criação e Configuração Livre de Profiles da Env e Contorno Visual da Requisição -->
+        <div class="chain-box" style="margin-top: 4px; max-width: 100%;">
+          <div class="chain-box-title">🎨 Profiles do Environment &amp; Contorno da Requisição (Criação Livre)</div>
+          <div class="chain-grid">
+            <div>
+              <label for="envModalProfileSelect">Profile Ativo:</label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <select id="envModalProfileSelect" class="select-input" style="flex:1;">
+                  <option value="">Sem Profile (Base do Environment)</option>
+                </select>
+                <button id="btnDeleteCustomEnvProfile" class="btn-small btn-danger-ghost hidden" title="Excluir o Profile selecionado">✕ Excluir Profile</button>
+              </div>
+            </div>
+            <div>
+              <label for="envNewProfileNameInput">Criar Novo Profile (ou renomear atual):</label>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <input id="envNewProfileNameInput" type="text" class="text-input" style="flex:1;" placeholder="Digite o nome do Profile..." />
+                <button id="btnAddCustomEnvProfile" class="btn-small" title="Criar um novo Profile com este nome">+ Criar Profile</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="chain-grid" style="margin-top: 4px;">
+            <div>
+              <label for="envModalContourModeSelect">Contorno em Volta da Requisição:</label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <select id="envModalContourModeSelect" class="select-input" style="flex:1;">
+                  <option value="none">Sem contorno customizado</option>
+                  <option value="custom">Com contorno colorido (Escolher cor ao lado)</option>
+                </select>
+                <input id="envModalBorderColorInput" type="color" class="env-color-picker hidden" value="#ef4444" title="Escolher cor do contorno da requisição" />
+              </div>
+            </div>
+            <div style="display:flex; align-items:flex-end;">
+              <div id="envProfilePreviewBanner" class="env-profile-preview-banner" style="width:100%; margin-top:0;">
+                Sem contorno customizado na requisição
+              </div>
+            </div>
+          </div>
+
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--text-primary); margin-top:6px;">
+            <input id="envConfirmDestructiveCheckbox" type="checkbox" style="accent-color:var(--accent); width:14px; height:14px;" />
+            <span>🛡️ <strong>Trava Anti-Acidente:</strong> Exigir confirmação antes de disparar <code>DELETE</code>, <code>PUT</code>, <code>PATCH</code> ou <code>POST</code> quando este Profile / Environment estiver ativo</span>
+          </label>
+        </div>
+
+        <div class="pane-header" style="margin-top:6px;">
+          <span id="envVarsPaneHeaderTitle">Variáveis do Profile / Environment (marque 🔒 Secret para ocultar valores sensíveis)</span>
+          <button id="btnAddEnvVar" class="btn-small">+ Variável</button>
+        </div>
+        <div id="envVarsTable" class="kv-table"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnDeleteEnv" class="btn-small btn-danger-ghost">Excluir Environment</button>
+        <button id="btnSaveEnvModal" class="btn-send">Salvar Environment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Salvar em Collection -->
+  <div id="saveModal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Salvar Requisição em Collection</h3>
+        <button id="btnCloseSaveModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <label>Escolha a Collection:</label>
+        <select id="saveCollectionSelect" class="select-input mb-8"></select>
+        <label>Ou crie uma nova Collection:</label>
+        <input id="newCollectionNameInput" type="text" class="text-input mb-8" placeholder="Deixe em branco para usar a selecionada acima" />
+        <label>Pasta / Grupo dentro da Collection (opcional):</label>
+        <input id="saveFolderNameInput" type="text" class="text-input" placeholder="Ex: Auth, Usuários, Pagamentos" />
+      </div>
+      <div class="modal-footer">
+        <button id="btnConfirmSaveCollection" class="btn-send">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Importar (.ovo / cURL / OpenAPI / Postman v2.1 / Bruno .bru) -->
+  <div id="importModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3>📥 Importar `.ovo` (Carro do Ovo), `cURL`, OpenAPI 3.0, Postman v2.1 ou `.bru`</h3>
+        <button id="btnCloseImportModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="pane-header">
+          <span>Carregue um arquivo nativo <code>.ovo</code>, comando <code>curl</code>, <code>OpenAPI 3.0</code>, <code>.bru</code> ou Collection Postman:</span>
+          <label class="btn-small" style="cursor:pointer;">
+            📂 Carregar Arquivo (.ovo / .json / .bru)
+            <input id="importFileInput" type="file" accept=".ovo,.json,.bru,application/json,text/plain" class="hidden" />
+          </label>
+        </div>
+        <textarea
+          id="importTextarea"
+          class="code-textarea"
+          style="min-height: 220px;"
+          spellcheck="false"
+          placeholder="Cole um arquivo .ovo (Carro do Ovo), comando curl -X POST ..., OpenAPI 3.0, .bru ou JSON Postman v2.1"
+        ></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btnConfirmImport" class="btn-send">Importar Agora</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Gerador de Código + Exportador Nativo (.ovo) e Bruno (.bru) -->
+  <div id="codeModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3>&lt;/&gt; Exportar Arquivo Nativo `.ovo` / Snippet de Código / `.bru`</h3>
+        <button id="btnCloseCodeModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="pane-header">
+          <div class="chain-actions">
+            <label for="codegenLangSelect">Formato:</label>
+            <select id="codegenLangSelect" class="select-input">
+              <option value="ovo">🥚 Carro do Ovo (.ovo — Formato Nativo Local)</option>
+              <option value="bru">Bruno (.bru — Arquivo Git-Native Local)</option>
+              <option value="curl">cURL (Bash / Terminal)</option>
+              <option value="fetch">JavaScript (fetch)</option>
+              <option value="axios">Node.js (Axios)</option>
+              <option value="python">Python (requests)</option>
+              <option value="powershell">PowerShell (Invoke-RestMethod)</option>
+            </select>
+          </div>
+          <div class="chain-actions">
+            <button id="btnDownloadOvoFile" class="btn-small">🥚 Baixar .ovo</button>
+            <button id="btnDownloadBruFile" class="btn-small">💾 Baixar .bru</button>
+            <button id="btnCopyCodegen" class="btn-small">📋 Copiar</button>
+          </div>
+        </div>
+        <pre id="codegenOutputPre" class="response-pre" style="min-height: 240px;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Cookie Jar Local -->
+  <div id="cookiesModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3>🍪 Gerenciador de Cookies Local (`./data/cookies.json`)</h3>
+        <button id="btnCloseCookiesModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="pane-header">
+          <span>Cookies são capturados de <code>Set-Cookie</code> e reenviados automaticamente para o respectivo domínio.</span>
+          <div class="chain-actions">
+            <button id="btnAddCookieRow" class="btn-small">+ Adicionar Cookie</button>
+            <button id="btnClearCookies" class="btn-small btn-danger-ghost">Limpar Todos</button>
+          </div>
+        </div>
+        <div id="cookieJarTable" class="kv-table"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnSaveCookieJar" class="btn-send">Salvar Cookie Jar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Collection Runner (Execução Sequencial de Collection + Data File .json/.csv) -->
+  <div id="runnerModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3 id="runnerModalTitle">▶ Collection Runner</h3>
+        <button id="btnCloseRunnerModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="pane-header" style="flex-wrap:wrap; gap:8px;">
+          <div id="runnerSummaryBar" style="font-weight:600;"></div>
+          <div class="chain-actions">
+            <label class="btn-small" style="cursor:pointer;" title="Carregar arquivo .json (array) ou .csv para rodar a Collection para cada linha de dados">
+              📂 Data File (.json / .csv)
+              <input id="runnerDataFileInput" type="file" accept=".json,.csv,application/json,text/csv" class="hidden" />
+            </label>
+            <span id="runnerDataFileBadge" class="badge">Sem arquivo de dados (1 iteração)</span>
+            <button id="btnRerunCollectionRunner" class="btn-small">↻ Reexecutar</button>
+          </div>
+        </div>
+        <div id="runnerResultsList" class="res-tests-list" style="min-height: 220px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Diff Visual de Histórico da Requisição -->
+  <div id="historyDiffModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3 id="historyDiffModalTitle">🔀 Comparação (Diff) de Execuções da Requisição</h3>
+        <button id="btnCloseHistoryDiffModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="historyDiffMetaBar" class="pane-header"></div>
+        <pre id="historyDiffOutputPre" class="response-pre" style="min-height:280px; max-height:460px; overflow:auto;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Configurar Collection (Auth Herdada, Variáveis da Collection & Pastas) -->
+  <div id="collectionConfigModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3 id="collectionConfigModalTitle">📁 Configurar Collection — Auth, Variáveis &amp; Pastas</h3>
+        <button id="btnCloseCollectionConfigModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="env-profile-config-card">
+          <div class="pane-header" style="margin-bottom:8px;">
+            <span><strong>🔐 Autenticação Padrão da Collection</strong> (herdada pelas requisições com <em>"Herdar da Collection"</em>)</span>
+          </div>
+          <div class="auth-row" style="margin-bottom:8px;">
+            <label for="colAuthTypeSelect">Tipo de Auth da Collection:</label>
+            <select id="colAuthTypeSelect" class="select-input">
+              <option value="none">No Auth (Sem autenticação padrão)</option>
+              <option value="bearer">Bearer Token</option>
+              <option value="basic">Basic Auth</option>
+              <option value="apikey">API Key</option>
+            </select>
+          </div>
+          <div id="colAuthBearerFields" class="auth-fields hidden">
+            <label>Bearer Token da Collection (suporta <code>{{variavel}}</code> ou <code>{{@Login.json.token}}</code>):</label>
+            <input id="colAuthBearerTokenInput" type="text" class="text-input" placeholder="Ex: {{api_token}}" />
+          </div>
+          <div id="colAuthBasicFields" class="auth-fields hidden">
+            <div class="chain-grid">
+              <div>
+                <label>Username:</label>
+                <input id="colAuthBasicUserInput" type="text" class="text-input" placeholder="Usuário" />
+              </div>
+              <div>
+                <label>Password:</label>
+                <input id="colAuthBasicPassInput" type="password" class="text-input" placeholder="Senha" />
+              </div>
+            </div>
+          </div>
+          <div id="colAuthApiKeyFields" class="auth-fields hidden">
+            <div class="chain-grid" style="grid-template-columns: 1fr 1fr 140px;">
+              <div>
+                <label>Chave (Key):</label>
+                <input id="colAuthApiKeyNameInput" type="text" class="text-input" placeholder="X-API-Key" />
+              </div>
+              <div>
+                <label>Valor (Value):</label>
+                <input id="colAuthApiKeyValueInput" type="text" class="text-input" placeholder="{{api_key}}" />
+              </div>
+              <div>
+                <label>Adicionar em:</label>
+                <select id="colAuthApiKeyAddToSelect" class="select-input w-full">
+                  <option value="header">Header</option>
+                  <option value="query">Query Params</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="env-profile-config-card" style="margin-top:6px;">
+          <div class="pane-header">
+            <span><strong>📂 Atribuir / Renomear Pastas das Requisições desta Collection</strong></span>
+          </div>
+          <div id="collectionFoldersTable" class="kv-table" style="max-height:150px; overflow-y:auto;"></div>
+        </div>
+
+        <div class="pane-header" style="margin-top:8px;">
+          <span><strong>🔧 Variáveis da Collection</strong> (viajam junto no arquivo <code>.ovo</code> da Collection)</span>
+          <button id="btnAddCollectionVar" class="btn-small">+ Variável da Collection</button>
+        </div>
+        <div id="collectionVarsTable" class="kv-table"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="btnSaveCollectionConfigModal" class="btn-send">Salvar Collection</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Command Palette (Ctrl+K) -->
+  <div id="commandPaletteModal" class="modal-backdrop hidden">
+    <div class="modal" style="width:600px; max-width:94vw;">
+      <div class="modal-header" style="padding:10px 14px;">
+        <input
+          id="commandPaletteInput"
+          type="text"
+          class="text-input"
+          autocomplete="off"
+          placeholder="Digite para buscar requisições, trocar Environment/Profile, layout ou ações..."
+          style="border:none; background:transparent; font-size:14px; box-shadow:none;"
+        />
+        <button id="btnCloseCommandPalette" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body" style="padding:8px; max-height:360px; overflow-y:auto;">
+        <div id="commandPaletteList" class="res-tests-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Consolidado de Configurações (Aparência, Disposição, Proxy, Certificado SSL/TLS e Cookies) -->
+  <div id="networkModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3>⚙ Configurações — Aparência, Disposição, Proxy &amp; SSL/TLS</h3>
+        <button id="btnCloseNetworkModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Seção 1: Aparência, Tema & Disposição das Janelas -->
+        <div class="env-profile-config-card">
+          <div class="pane-header" style="margin-bottom:8px;">
+            <span><strong>🪟 Aparência, Tema, Disposição &amp; Backup `.ovo`</strong></span>
+            <div class="chain-actions">
+              <button id="btnToggleTheme" type="button" class="btn-small" title="Alternar Tema Dark / Light">☀ Alternar Tema (Dark / Light)</button>
+              <button id="btnOpenCookiesModal" type="button" class="btn-small" title="Gerenciar Cookie Jar Local (./data/cookies.json)">🍪 Gerenciar Cookies <span id="badgeCookieJar"></span></button>
+              <button id="btnExportWorkspaceOvo" type="button" class="btn-small" title="Exportar Workspace Completo (Collections, Environments, Profiles e Configurações) em um único arquivo .ovo">🥚 Exportar Workspace (.ovo)</button>
+            </div>
+          </div>
+
+          <div class="disposition-section-title">Posição do Menu Lateral (Sidebar)</div>
+          <div class="disposition-grid" style="margin-bottom:8px;">
+            <button type="button" class="btn-small" data-disp-sidebar="left">◧ Menu à Esquerda</button>
+            <button type="button" class="btn-small" data-disp-sidebar="right">◨ Menu à Direita</button>
+            <button type="button" class="btn-small" data-disp-sidebar="toggle">⬜ Recolher / Expandir</button>
+          </div>
+
+          <div class="disposition-section-title">Disposição: Request &amp; Response</div>
+          <div class="disposition-grid" style="margin-bottom:8px;">
+            <button type="button" class="btn-small" data-disp-split="vertical">⬍ Req Cima / Resp Baixo</button>
+            <button type="button" class="btn-small" data-disp-split="vertical-reverse">⬆ Resp Cima / Req Baixo</button>
+            <button type="button" class="btn-small" data-disp-split="horizontal">⬌ Req Esq / Resp Dir</button>
+            <button type="button" class="btn-small" data-disp-split="horizontal-reverse">⬅ Resp Esq / Req Dir</button>
+          </div>
+
+          <div class="disposition-section-title">Foco / Proporção das Janelas</div>
+          <div class="disposition-grid">
+            <button type="button" class="btn-small" data-disp-focus="equal">⚖ Dividir 50% / 50%</button>
+            <button type="button" class="btn-small" data-disp-focus="request">⛶ Focar só Request</button>
+            <button type="button" class="btn-small" data-disp-focus="response">⛶ Focar só Response</button>
+          </div>
+        </div>
+
+        <!-- Seção 2: Certificado SSL / TLS & Certificado Cliente (mTLS) -->
+        <div class="env-profile-config-card" style="margin-top:6px;">
+          <div class="pane-header" style="margin-bottom:8px;">
+            <span><strong>🔒 Certificado SSL / TLS &amp; Certificado Digital Cliente (mTLS)</strong></span>
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-primary); margin-bottom:8px;">
+            <input id="netIgnoreCertErrorsCheckbox" type="checkbox" style="accent-color:var(--accent); width:15px; height:15px;" />
+            <span><strong>Ignorar erros de certificado SSL/TLS</strong> (Aceitar certificados autoassinados / expirados / CA interna — <code>rejectUnauthorized: false</code>)</span>
+          </label>
+          <div style="display:flex; align-items:center; gap:10px; margin-top:8px; margin-bottom:10px;">
+            <label for="netTimeoutMsInput" style="margin:0; min-width:170px;">Timeout da Requisição (ms):</label>
+            <input id="netTimeoutMsInput" type="number" min="1000" step="1000" class="text-input" style="max-width:160px;" value="30000" />
+          </div>
+
+          <div style="border-top:1px solid var(--border-color); padding-top:10px; margin-top:6px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-primary); margin-bottom:8px;">
+              <input id="netMtlsEnabledCheckbox" type="checkbox" style="accent-color:var(--accent); width:15px; height:15px;" />
+              <span><strong>Habilitar Certificado Digital do Cliente (mTLS — `.pfx` / `.p12` ou `.crt` + `.key`)</strong></span>
+            </label>
+            <div id="netMtlsFieldsContainer" class="chain-grid" style="grid-template-columns: 1fr 1fr; gap:10px;">
+              <div>
+                <label>Arquivo `.pfx` / `.p12` (PKCS#12) ou Certificado `.crt`/`.pem`:</label>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <label class="btn-small" style="cursor:pointer; flex-shrink:0;">
+                    📂 Carregar `.pfx`/`.p12`/`.crt`
+                    <input id="netMtlsCertFileInput" type="file" accept=".pfx,.p12,.crt,.pem,.cer" class="hidden" />
+                  </label>
+                  <span id="netMtlsCertFileName" class="badge" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Nenhum certificado carregado</span>
+                  <button id="btnClearMtlsCert" type="button" class="btn-icon" title="Remover certificado carregado">✕</button>
+                </div>
+              </div>
+              <div>
+                <label for="netMtlsPassphraseInput">Senha / Passphrase do Certificado (`.pfx` / `.p12` / `.key`):</label>
+                <input id="netMtlsPassphraseInput" type="password" class="text-input" placeholder="Senha do certificado digital (suporta {{var}})" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção 3: Proxy HTTP / HTTPS -->
+        <div class="env-profile-config-card" style="margin-top:6px;">
+          <div class="pane-header" style="margin-bottom:8px;">
+            <span><strong>🌐 Servidor Proxy (HTTP / HTTPS Tunnel)</strong></span>
+          </div>
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-primary); margin-bottom:10px;">
+            <input id="netProxyEnabledCheckbox" type="checkbox" style="accent-color:var(--accent); width:15px; height:15px;" />
+            <span><strong>Habilitar Proxy customizado para envio das requisições</strong></span>
+          </label>
+
+          <div id="netProxyFieldsContainer" style="display:flex; flex-direction:column; gap:10px;">
+            <div class="chain-grid" style="grid-template-columns: 120px 1fr 120px;">
+              <div>
+                <label for="netProxyProtocolSelect">Protocolo:</label>
+                <select id="netProxyProtocolSelect" class="select-input w-full">
+                  <option value="http">http://</option>
+                  <option value="https">https://</option>
+                </select>
+              </div>
+              <div>
+                <label for="netProxyHostInput">Host / Endereço do Proxy (suporta <code>{{var}}</code>):</label>
+                <input id="netProxyHostInput" type="text" class="text-input" placeholder="Ex: 127.0.0.1 ou proxy.empresa.local" />
+              </div>
+              <div>
+                <label for="netProxyPortInput">Porta:</label>
+                <input id="netProxyPortInput" type="text" class="text-input" placeholder="8080" value="8080" />
+              </div>
+            </div>
+
+            <div class="chain-grid">
+              <div>
+                <label for="netProxyUsernameInput">Usuário do Proxy (opcional):</label>
+                <input id="netProxyUsernameInput" type="text" class="text-input" placeholder="Usuário Basic Auth do Proxy (suporta {{var}})" />
+              </div>
+              <div>
+                <label for="netProxyPasswordInput">Senha do Proxy (opcional):</label>
+                <input id="netProxyPasswordInput" type="password" class="text-input" placeholder="Senha do Proxy (suporta {{var}})" />
+              </div>
+            </div>
+
+            <div>
+              <label for="netProxyBypassInput">Ignorar Proxy para estes hosts (Bypass / No-Proxy, separados por vírgula):</label>
+              <input id="netProxyBypassInput" type="text" class="text-input" placeholder="localhost, 127.0.0.1, ::1, *.local" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span style="font-size:11px; color:var(--text-secondary);">Salvo localmente em <code>./data/settings.json</code></span>
+        <button id="btnSaveNetworkModal" class="btn-send">Salvar Configurações</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal US-50: Comparador A/B entre Profiles / Environments -->
+  <div id="compareProfileModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3>⚖️ Comparador A/B entre Profiles &amp; Environments</h3>
+        <button id="btnCloseCompareProfileModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="env-profile-config-card">
+          <div class="pane-header" style="margin-bottom:8px;">
+            <span>Dispare a requisição ativa em dois contextos diferentes para comparar Status, Latência e Diff do JSON lado a lado:</span>
+          </div>
+          <div class="chain-grid" style="grid-template-columns: 1fr 1fr auto; align-items:end; gap:10px;">
+            <div>
+              <label for="compareContextASelect">Contexto A (Origem):</label>
+              <select id="compareContextASelect" class="select-input w-full"></select>
+            </div>
+            <div>
+              <label for="compareContextBSelect">Contexto B (Alvo de Comparação):</label>
+              <select id="compareContextBSelect" class="select-input w-full"></select>
+            </div>
+            <div>
+              <button id="btnRunCompareAB" class="btn-send" style="height:34px; padding:0 16px;">▶ Executar &amp; Comparar</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="compareABMetaBar" class="pane-header" style="margin-top:6px;">
+          <span class="empty-hint">Selecione os dois contextos acima e clique em Executar &amp; Comparar.</span>
+        </div>
+        <pre id="compareABDiffOutputPre" class="response-pre" style="min-height:280px; max-height:430px; overflow:auto;">O resultado do Diff A/B aparecerá aqui.</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal US-51: Caixa de Ferramentas Dev Offline (Base64, URL Encode, SHA-256/HMAC & Timestamp) -->
+  <div id="devToolboxModal" class="modal-backdrop hidden">
+    <div class="modal modal-large">
+      <div class="modal-header">
+        <h3>🧰 Caixa de Ferramentas Dev (100% Offline)</h3>
+        <button id="btnCloseDevToolboxModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Seção 1: Texto -> Base64 / URL / Hash SHA-256 / HMAC -->
+        <div class="env-profile-config-card">
+          <div class="pane-header" style="margin-bottom:6px;">
+            <span><strong>🔐 Codificador Base64, URL Encode &amp; Hash SHA-256 / HMAC-SHA256</strong></span>
+          </div>
+          <div class="chain-grid" style="grid-template-columns: 1fr 1fr; gap:10px;">
+            <div>
+              <label for="toolboxInputText">Entrada (Texto bruto, Base64 ou URL):</label>
+              <textarea id="toolboxInputText" class="code-textarea" style="min-height:95px;" spellcheck="false" placeholder="Digite ou cole o texto aqui..."></textarea>
+            </div>
+            <div>
+              <label for="toolboxOutputText">Resultado:</label>
+              <textarea id="toolboxOutputText" class="code-textarea" style="min-height:95px;" spellcheck="false" readonly placeholder="O resultado aparecerá aqui..."></textarea>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+            <button type="button" class="btn-small" data-toolbox-op="b64-encode">Base64 Encode</button>
+            <button type="button" class="btn-small" data-toolbox-op="b64-decode">Base64 Decode</button>
+            <button type="button" class="btn-small" data-toolbox-op="url-encode">URL Encode</button>
+            <button type="button" class="btn-small" data-toolbox-op="url-decode">URL Decode</button>
+            <button type="button" class="btn-small" data-toolbox-op="sha256">Hash SHA-256</button>
+            <input id="toolboxHmacSecretInput" type="text" class="text-input" style="max-width:170px; padding:4px 8px;" placeholder="Chave Secreta HMAC..." />
+            <button type="button" class="btn-small" data-toolbox-op="hmac-sha256">HMAC-SHA256</button>
+            <button id="btnCopyToolboxOutput" type="button" class="btn-small" style="margin-left:auto;">📋 Copiar Resultado</button>
+          </div>
+        </div>
+
+        <!-- Seção 2: Conversor de Timestamp Unix & Geradores Rápidos BR -->
+        <div class="env-profile-config-card" style="margin-top:6px;">
+          <div class="pane-header" style="margin-bottom:6px;">
+            <span><strong>⏱ Conversor Unix Timestamp ⇄ Data ISO/Local &amp; Geradores Rápidos 🇧🇷</strong></span>
+          </div>
+          <div class="chain-grid" style="grid-template-columns: 1fr 1fr; gap:10px; align-items:end;">
+            <div>
+              <label for="toolboxTimestampInput">Timestamp Unix (segundos ou ms) ou Data ISO:</label>
+              <div style="display:flex; gap:6px;">
+                <input id="toolboxTimestampInput" type="text" class="text-input" style="flex:1;" placeholder="Ex: 1731360000 ou 2026-11-11T23:00:00Z" />
+                <button id="btnToolboxNowTimestamp" type="button" class="btn-small">Agora</button>
+              </div>
+            </div>
+            <div>
+              <label>Conversão Instantânea:</label>
+              <div id="toolboxTimestampResult" class="env-profile-preview-banner" style="margin-top:0; font-family:var(--font-mono); font-size:11px;">
+                Informe um timestamp ou clique em "Agora"
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            <span style="font-size:12px; color:var(--text-secondary);">Gerar e copiar c/ 1 clique:</span>
+            <button type="button" class="btn-small" data-toolbox-gen="uuid">🎲 UUID v4</button>
+            <button type="button" class="btn-small" data-toolbox-gen="cpf">🇧🇷 CPF Válido</button>
+            <button type="button" class="btn-small" data-toolbox-gen="cnpj">🇧🇷 CNPJ Válido</button>
+            <button type="button" class="btn-small" data-toolbox-gen="celular">📱 Celular BR</button>
+            <button type="button" class="btn-small" data-toolbox-gen="email">✉️ E-mail</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Manual Completo da Aplicação (100% Offline) -->
+  <div id="manualModal" class="modal-backdrop hidden">
+    <div class="modal modal-large" style="width:860px; max-width:96vw;">
+      <div class="modal-header">
+        <h3>📖 Manual Oficial — Carro do Ovo (100% Local-First API Client)</h3>
+        <button id="btnCloseManualModal" class="btn-icon">✕</button>
+      </div>
+      <div class="modal-body" style="max-height:76vh; overflow-y:auto; line-height:1.55; font-size:13px;">
+        <div class="env-profile-config-card">
+          <h4 style="margin:0 0 6px 0; color:var(--accent);">🥚 1. Visão Geral &amp; Filosofia 100% Local-First</h4>
+          <p style="margin:0; color:var(--text-secondary);">
+            O <strong>Carro do Ovo</strong> é um cliente de APIs moderno, portátil e <strong>100% offline</strong>. Nenhum dado sai da sua máquina para nuvens de terceiros: todas as suas Collections, Environments, Profiles, Histórico, Cookies e Configurações ficam salvos localmente na pasta <code>./data/</code> e podem ser exportados no formato nativo <strong><code>.ovo</code></strong>.
+          </p>
+        </div>
+
+        <div class="env-profile-config-card" style="margin-top:8px;">
+          <h4 style="margin:0 0 6px 0; color:var(--accent);">⌨️ 2. Atalhos de Teclado Essenciais</h4>
+          <div class="res-headers-grid">
+            <div class="res-header-row"><div class="res-header-key"><code>Ctrl + Espaço</code></div><div>Abre o <strong>Autocomplete de Variáveis (<code>{{...}}</code>)</strong> em qualquer campo de texto (URL, Params, Headers, Auth, Body) com navegação por setas (<code>↑</code>/<code>↓</code>) e <code>Enter</code>.</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>Ctrl + Enter</code></div><div>Dispara a requisição ativa (<strong>Send</strong>).</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>Ctrl + S</code></div><div>Salva as alterações da aba atual na Collection vinculada (remove o indicador <code>●</code> de pendência).</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>Ctrl + K</code></div><div>Abre a <strong>Command Palette</strong> (busca rápida de requisições, troca de Profile/Environment, layout e ações).</div></div>
+          </div>
+        </div>
+
+        <div class="env-profile-config-card" style="margin-top:8px;">
+          <h4 style="margin:0 0 6px 0; color:var(--accent);">🎨 3. Environments, Profiles Livres, Contorno Colorido &amp; Trava Anti-Acidente</h4>
+          <ul style="margin:0; padding-left:18px; color:var(--text-secondary);">
+            <li><strong>Criação Livre de Profiles:</strong> Clique no botão <code>✎</code> ao lado do Environment na barra superior para criar quantos Profiles quiser (ex: <em>Local</em>, <em>Staging</em>, <em>Cliente X</em>, <em>Produção</em>), sem nomes engessados.</li>
+            <li><strong>Contorno Visual na Requisição:</strong> Cada Profile pode ter uma cor personalizada que contorna todo o painel da requisição para você sempre saber em qual ambiente está disparando.</li>
+            <li><strong>Trava Anti-Acidente (<code>🛡️</code>):</strong> Marque a opção no Profile para exigir confirmação antes de disparar métodos destrutivos (<code>DELETE</code>, <code>PUT</code>, <code>PATCH</code>, <code>POST</code>).</li>
+            <li><strong>Comparador A/B (<code>⚖️ Comparar Profile/Env</code>):</strong> Dispara a mesma requisição em dois Profiles/Environments e exibe o Diff Visual lado a lado.</li>
+          </ul>
+        </div>
+
+        <div class="env-profile-config-card" style="margin-top:8px;">
+          <h4 style="margin:0 0 6px 0; color:var(--accent);">🔧 4. Variáveis, Geradores Dinâmicos BR 🇧🇷 &amp; Request Chaining</h4>
+          <p style="margin:0 0 6px 0; color:var(--text-secondary);">
+            Pressione <strong><code>Ctrl + Espaço</code></strong> ou digite <strong><code>{{</code></strong> em qualquer campo para listar e inserir variáveis. Ordem de precedência: <code>Data File (Runner) &gt; Profile Ativo &gt; Environment &gt; Collection</code>.
+          </p>
+          <div class="res-headers-grid">
+            <div class="res-header-row"><div class="res-header-key"><code>{{$uuid}}</code> / <code>{{$guid}}</code></div><div>Gera um UUID v4 aleatório a cada disparo.</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>{{$timestamp}}</code> / <code>{{$isoDate}}</code></div><div>Timestamp Unix (segundos) ou data ISO-8601 UTC atual.</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>{{$randomCPF}}</code></div><div>Gera um CPF brasileiro válido (11 dígitos com dígito verificador real).</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>{{$randomCNPJ}}</code></div><div>Gera um CNPJ brasileiro válido (14 dígitos com dígito verificador real).</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>{{$randomCelular}}</code> / <code>{{$randomEmail}}</code></div><div>Gera celular brasileiro (<code>DDD + 9xxxxxxxx</code>) ou e-mail aleatório.</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>{{@NomeReq.json.campo}}</code></div><div><strong>Request Chaining:</strong> Lê diretamente um valor da última resposta de outra requisição (ex: <code>{{@Login.json.access_token}}</code>).</div></div>
+          </div>
+        </div>
+
+        <div class="env-profile-config-card" style="margin-top:8px;">
+          <h4 style="margin:0 0 6px 0; color:var(--accent);">🔐 5. Autenticação Herdada, Inspetor JWT Offline, Proxy &amp; mTLS</h4>
+          <ul style="margin:0; padding-left:18px; color:var(--text-secondary);">
+            <li><strong>Herdar da Collection (<code>🔗</code>):</strong> Configure o Auth padrão clicando em <code>⚙</code> na Collection e selecione <em>"Herdar da Collection"</em> nas requisições.</li>
+            <li><strong>Inspetor JWT 100% Local:</strong> Ao usar um token JWT na aba <code>Authorization</code> (mesmo via <code>{{variavel}}</code>), o Header e o Payload são decodificados offline com alerta de expiração (<code>exp</code>).</li>
+            <li><strong>Proxy HTTP/HTTPS, SSL &amp; mTLS:</strong> Em <code>⚙ Configurações</code>, configure Proxy com túnel <code>CONNECT</code>, desative verificação de certificado SSL autoassinado (<code>rejectUnauthorized: false</code>) ou anexe seu certificado digital cliente (<code>.pfx</code> / <code>.p12</code> / <code>.crt</code>) para handshakes <strong>mTLS</strong>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span style="font-size:11px; color:var(--text-secondary);">Documentação também disponível no arquivo <code>MANUAL.md</code> na raiz do projeto.</span>
+        <button id="btnCloseManualModalFooter" class="btn-send">Entendi</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
