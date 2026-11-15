@@ -150,7 +150,8 @@ Auth também pode ser definido no nível da Collection e herdado pelas requests.
 | Proxy Capture | `📡 Captura` | Proxy HTTP local que captura tráfego (inclui túnel CONNECT) e salva requests como `.ovo` |
 | WebSocket | `🔌 WS` | Cliente `ws://`/`wss://` com log bidirecional e salvamento de template na Collection |
 | SSE | `📡 SSE` | Inspector de `text/event-stream` com start/stop via `fetch` + `AbortController` |
-| Cofre | `🗝 Cofre` | Vault AES-256-GCM com master password: unlock/lock, get/set/delete de segredos, persistência em `data/vault.enc.json` |
+| Cofre | `🗝 Cofre` | Vault AES-256-GCM com master password: unlock/lock, get/set/delete de segredos, persistência em `data/vault.enc.json`. Segredos usáveis em qualquer campo via `{{vault.<chave>}}` — resolvidos só no processo main e mascarados (`••••`) em todo retorno ao renderer |
+| Git Sync | `🔀 Git` | Sincroniza a Collection com repositório remoto do usuário: detectar git, testar conexão, conectar (clone em `data/git-repos/`), pull/push/sync com `pull --rebase --autostash`, resolução de conflitos (manter local/remoto) e status. Credenciais (`user:pass` ou sistema) ficam só no cofre (`git:<repoId>`) e nunca em URL, `.git/config`, argumentos ou logs — autenticação via `GIT_ASKPASS` |
 
 ---
 
@@ -162,10 +163,11 @@ node cli.js run <arquivo.ovo|pasta-com-.ovo> [opções]
 ovo-frito run ./minha-collection --report junit --output junit.xml
 ```
 
-Opções: `--var KEY=VALUE`, `--env-file <path>`, `--report json|junit`, `--output <path>`, `--stop-on-failure`, `--timeout <ms>`, `--data-dir <path>`.
+Opções: `--var KEY=VALUE`, `--env-file <path>`, `--report json|junit`, `--output <path>`, `--stop-on-failure`, `--timeout <ms>`, `--data-dir <path>`, `--vault-password-env <VAR>`.
 
 - Aceita `.ovo` unitário, pasta com `collection.ovo` + requests, formato envelope (`type: request|collection`) e formato flat do folder-sync.
 - Interpola variáveis, collection vars, generators e response chaining; avalia assertions.
+- Requests com `{{vault.*}}` exigem `--vault-password-env <VAR>` apontando para a variável de ambiente com a master password do cofre (a senha nunca vai na linha de comando). Sem ela, a request falha com `VAULT_LOCKED` e exit code `1`.
 - Exit code `1` se qualquer request falhar. Relatórios JSON ou JUnit para CI/CD.
 
 ---
@@ -180,11 +182,27 @@ Opções: `--var KEY=VALUE`, `--env-file <path>`, `--report json|junit`, `--outp
 
 ---
 
-## 13. Limitações conhecidas
+## 13. Recursos de UX
+
+- **Atalhos personalizáveis** (`features/keyboard-shortcuts.js`): `Ctrl+Enter` enviar, `Ctrl+S` salvar, `Ctrl+T/W` abas, `Ctrl+K` paleta, `Ctrl+/` lista de atalhos; remapeáveis em Configurações.
+- **Lixeira e desfazer**: deleções viram itens na lixeira (restauráveis); toast "Desfazer" após ações destrutivas; `Ctrl+Z` nas tabelas do editor.
+- **Sessão segura**: abas, rascunhos e layout restaurados sem segredos em disco (`lib/session-serializer.js`).
+- **cURL na URL**: colar `curl ...` no campo URL converte automaticamente com opção Desfazer.
+- **Favoritos e recentes**: `★` por requisição; seções no topo da sidebar e primeiro no `Ctrl+K`; últimas 10 em `settings.recents`.
+- **Busca na resposta**: campo 🔎 no corpo com contagem, `▲/▼` e destaque; Pretty limitado a 2 MB.
+- **Histórico pesquisável**: filtro por texto/status/método/host + modo "Global" agregando todas as abas.
+- **Produção**: marcar Environment/Profile como Produção exibe faixa vermelha, botão "Enviar em PROD" e confirmação obrigatória com URL interpolada.
+- **Comparar respostas**: comando `⇄ Comparar Resposta com outra Aba` no `Ctrl+K`.
+- **Drag-and-drop**: soltar `.ovo`/`.bru`/cURL/OpenAPI na janela importa direto.
+- **Variáveis com dica**: autocomplete `Ctrl+Espaço` mostra escopo (Env/Profile/Collection/Dinâmica/Cofre) e valor mascarado.
+- **Zoom**: `Ctrl + / - / 0` persiste em `settings.uiZoom`.
+
+## 14. Limitações conhecidas
 
 - OAuth PKCE depende de `shell.openExternal` → **somente Electron** (web fallback retorna unsupported).
 - SSE/WebSocket rodam no renderer (browser APIs); não passam pelo motor HTTP do main.
-- Cofre protege segredos em repouso; interpolação `{{vault.*}}` e refresh automático de token OAuth são próximos ciclos.
+- Cofre protege segredos em repouso e os resolve em `{{vault.*}}` somente no main (mascarados no retorno). OAuth 2.0 tem refresh automático no main (client_credentials/password/PKCE) com cache, single-flight e retry único em 401 — `refresh_token` nunca vai ao renderer.
+- Git Sync usa as credenciais Git do usuário (nunca armazenadas em texto fora do cofre); hooks do repositório são desabilitados e `file://`/`ext::` são bloqueados em produção (liberado apenas em testes).
 - E2E requer `ELECTRON_RUN_AS_NODE` ausente (o spec já remove a variável no launch).
 
 ---

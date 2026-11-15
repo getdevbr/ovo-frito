@@ -21,4 +21,12 @@ describe('interpolate', () => {
   it('resolves nested paths with array indices', () => {
     assert.equal(getByPath({ items: [{ name: 'ok' }] }, 'items[0].name'), 'ok');
   });
+
+  it('keeps {{vault.*}} placeholders literal even when a variable with the same name exists', () => {
+    const result = interpolateString('{{vault.api_token}}', {
+      variables: { 'vault.api_token': 'env-override', other: 'x' }
+    });
+    assert.equal(result, '{{vault.api_token}}');
+    assert.equal(interpolateString('Bearer {{vault.api_token}}', { variables: {} }), 'Bearer {{vault.api_token}}');
+  });
 });

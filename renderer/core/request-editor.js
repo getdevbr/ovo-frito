@@ -39,9 +39,67 @@ function syncParamsFromUrl(tab) {
 
 
 /* Renderização de Tabelas Key-Value */
+// U-08: pilhas de desfazer por tabela key/value (Params, Headers, Forms, Assertions)
+const kvUndoStacks = new Map();
+function kvStack(containerId) {
+  if (!kvUndoStacks.has(containerId)) {
+    kvUndoStacks.set(containerId, window.CDO?.undoStack?.createUndoStack
+      ? window.CDO.undoStack.createUndoStack({ limit: 50 })
+      : { push() {}, undo: () => undefined, redo: () => undefined, canUndo: () => false, canRedo: () => false });
+  }
+  return kvUndoStacks.get(containerId);
+}
+function kvSnapshot(rows) {
+  try { return JSON.parse(JSON.stringify(rows || [])); } catch { return []; }
+}
+function kvRestore(containerId, rows, snapshot, onChange) {
+  rows.length = 0;
+  (snapshot || []).forEach((r) => rows.push(r));
+  renderKeyValueTable(containerId, rows, onChange);
+  onChange?.();
+}
+
+
+function syncKvVarState(input) {
+  const vr = window.CDO?.varResolution;
+  if (!vr?.findRefs || !input) return;
+  const refs = vr.findRefs(input.value || '');
+  const missingKeys = refs
+    .filter((r) => r.kind !== 'vault')
+    .filter((r) => { try { return !isVariableDefined(r.key); } catch { return true; } })
+    .map((r) => r.key);
+  input.classList.toggle('var-missing-input', missingKeys.length > 0);
+  input.title = missingKeys.length
+    ? `Variáveis não resolvidas: ${[...new Set(missingKeys)].join(', ')}`
+    : '';
+}
+
+
+function kvPushEdit(containerId, rows, beforeRows, onChange) {
+  const stack = kvStack(containerId);
+  stack.push({ before: kvSnapshot(beforeRows), after: kvSnapshot(rows) });
+}
+
+
 function renderKeyValueTable(containerId, rows, onChange, placeholders = { key: 'Chave (Key)', value: 'Valor (Value — suporta {{var}})' }) {
   const container = document.getElementById(containerId);
   container.innerHTML = '';
+
+  if (!container.dataset.kvUndoBound) {
+    container.dataset.kvUndoBound = '1';
+    container.addEventListener('keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = String(e.key || '').toLowerCase();
+      if (k !== 'z' && k !== 'y') return;
+      const stack = kvStack(containerId);
+      const isRedo = k === 'y' || e.shiftKey;
+      const entry = isRedo ? stack.redo() : stack.undo();
+      if (!entry) return;
+      e.preventDefault();
+      e.stopPropagation();
+      kvRestore(containerId, rows, isRedo ? entry.after : entry.before, onChange);
+    });
+  }
 
   if (!Array.isArray(rows) || rows.length === 0) {
     const empty = document.createElement('div');
@@ -68,27 +126,49 @@ function renderKeyValueTable(containerId, rows, onChange, placeholders = { key: 
     keyInput.className = 'kv-input';
     keyInput.placeholder = placeholders.key;
     keyInput.value = row.key || '';
+    keyInput.addEventListener('focusin', () => {
+      if (!keyInput.dataset.kvBefore) keyInput.dataset.kvBefore = JSON.stringify(kvSnapshot(rows));
+    });
     keyInput.addEventListener('input', () => {
       row.key = keyInput.value;
+      syncKvVarState(keyInput);
       onChange();
     });
+    keyInput.addEventListener('change', () => {
+      const before = keyInput.dataset.kvBefore ? JSON.parse(keyInput.dataset.kvBefore) : kvSnapshot(rows);
+      delete keyInput.dataset.kvBefore;
+      kvPushEdit(containerId, rows, before, onChange);
+    });
+    syncKvVarState(keyInput);
 
     const valInput = document.createElement('input');
     valInput.type = 'text';
     valInput.className = 'kv-input';
     valInput.placeholder = placeholders.value;
     valInput.value = row.value || '';
+    valInput.addEventListener('focusin', () => {
+      if (!valInput.dataset.kvBefore) valInput.dataset.kvBefore = JSON.stringify(kvSnapshot(rows));
+    });
     valInput.addEventListener('input', () => {
       row.value = valInput.value;
+      syncKvVarState(valInput);
       onChange();
     });
+    valInput.addEventListener('change', () => {
+      const before = valInput.dataset.kvBefore ? JSON.parse(valInput.dataset.kvBefore) : kvSnapshot(rows);
+      delete valInput.dataset.kvBefore;
+      kvPushEdit(containerId, rows, before, onChange);
+    });
+    syncKvVarState(valInput);
 
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-icon';
     delBtn.textContent = '✕';
     delBtn.title = 'Remover linha';
     delBtn.addEventListener('click', () => {
+      const before = kvSnapshot(rows);
       rows.splice(index, 1);
+      kvPushEdit(containerId, rows, before, onChange);
       renderKeyValueTable(containerId, rows, onChange, placeholders);
       onChange();
     });
@@ -556,9 +636,55 @@ function renderJwtInspector(tab) {
 }
 
 
+function buildVarScopes() {
+  const scopes = [];
+  const tab = getActiveTab();
+  if (tab && tab.collectionId) {
+    const col = state.collections.find((c) => c.id === tab.collectionId);
+    if (col) scopes.push({ name: `Collection: ${col.name}`, vars: col.variables || [] });
+  }
+  const env = getActiveEnvironment();
+  if (env) scopes.push({ name: `Environment: ${env.name}`, vars: env.variables || [] });
+  if (state.runnerIterationVars && typeof state.runnerIterationVars === 'object') {
+    scopes.push({
+      name: 'Runner',
+      vars: Object.entries(state.runnerIterationVars).map(([key, value]) => ({ key, value: String(value ?? ''), enabled: true }))
+    });
+  }
+  return scopes;
+}
+
+
+function varChainTitle(key) {
+  const vr = window.CDO?.varResolution;
+  if (!vr?.resolveChain) return null;
+  const res = vr.resolveChain(key, buildVarScopes());
+  if (!res.chain || !res.chain.length) return null;
+  const parts = res.chain.map((c) => `${c.scope}: ${c.defined ? (c.secret ? '••••' : 'definida') : '—'}`);
+  return `Precedência → ${parts.join(' | ')}`;
+}
+
+
 function varStatusClassifier(key) {
   try {
-    return isVariableDefined(key) ? 'ok' : 'missing';
+    const vr = window.CDO?.varResolution;
+    const k = String(key || '').trim();
+    const kind = vr?.kindOf ? vr.kindOf(k) : 'var';
+    if (kind === 'vault') {
+      return { verdict: 'vault', title: 'Segredo do cofre — resolvido somente no processo principal' };
+    }
+    const defined = isVariableDefined(k);
+    if (!defined) {
+      return { verdict: 'missing', title: varChainTitle(k) || `Variável {{${k}}} não definida em nenhum escopo` };
+    }
+    if (kind === 'dynamic') return { verdict: 'dynamic', title: 'Variável dinâmica — gerada a cada envio' };
+    if (kind === 'chain') return { verdict: 'chain', title: 'Referência a resposta de outra request (@...)' };
+    if (vr?.resolveChain) {
+      const res = vr.resolveChain(k, buildVarScopes());
+      if (res.secret) return { verdict: 'secret', title: `Variável secreta definida em ${res.source || 'escopo'} (valor mascarado)` };
+      if (res.source) return { verdict: 'ok', title: `Resolvida via ${res.source}` };
+    }
+    return { verdict: 'ok', title: 'Resolvida' };
   } catch {
     return null;
   }
@@ -683,14 +809,26 @@ function renderActiveRequest() {
   document.getElementById('authApiKeyName').value = tab.auth?.keyName || '';
   document.getElementById('authApiKeyValue').value = tab.auth?.keyValue || '';
   document.getElementById('authApiKeyAddTo').value = tab.auth?.addTo || 'header';
-  document.getElementById('oauthGrantType').value = tab.auth?.grantType || 'client_credentials';
+  const oauthGrant = tab.auth?.grantType || 'client_credentials';
+  document.getElementById('oauthGrantType').value = oauthGrant;
   document.getElementById('oauthTokenUrl').value = tab.auth?.tokenUrl || '';
   document.getElementById('oauthClientId').value = tab.auth?.clientId || '';
   document.getElementById('oauthClientSecret').value = tab.auth?.clientSecret || '';
   document.getElementById('oauthAuthorizationUrl').value = tab.auth?.authorizationUrl || '';
   document.getElementById('oauthScopes').value = tab.auth?.scopes || '';
   document.getElementById('oauthRedirectPort').value = tab.auth?.redirectPort || '';
-  document.getElementById('oauthPkceFields')?.classList.toggle('hidden', (tab.auth?.grantType || 'client_credentials') !== 'authorization_code');
+  const oauthUserEl = document.getElementById('oauthUsername');
+  const oauthPassEl = document.getElementById('oauthPassword');
+  if (oauthUserEl) oauthUserEl.value = tab.auth?.username || '';
+  if (oauthPassEl) oauthPassEl.value = tab.auth?.password || '';
+  const oauthAutoEl = document.getElementById('oauthAutoRefresh');
+  if (oauthAutoEl) oauthAutoEl.checked = tab.auth?.autoRefresh === true;
+  document.getElementById('oauthPkceFields')?.classList.toggle('hidden', oauthGrant !== 'authorization_code');
+  const oauthPwFields = document.getElementById('oauthPasswordFields');
+  if (oauthPwFields) {
+    oauthPwFields.classList.toggle('hidden', oauthGrant !== 'password');
+    oauthPwFields.style.display = oauthGrant === 'password' ? '' : 'none';
+  }
   document.getElementById('oauthAccessTokenInput').value = tab.auth?.token || '';
   const digestUserEl = document.getElementById('authDigestUser');
   const digestPassEl = document.getElementById('authDigestPass');

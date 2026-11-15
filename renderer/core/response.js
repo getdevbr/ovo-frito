@@ -31,16 +31,37 @@ function renderRequestHistoryPane(tab) {
 
   if (!Array.isArray(tab.history)) tab.history = [];
   const hist = tab.history;
-  if (badgeResHistory) badgeResHistory.textContent = hist.length > 0 ? `(${hist.length})` : '';
-  if (titleSpan) titleSpan.textContent = `🕒 Histórico Individual de "${tab.name || tab.url || 'Requisição'}" (${hist.length} execuções)`;
+
+  // U-07: filtro + modo global (todas as abas)
+  const filterTerm = state.historyFilter || '';
+  const globalMode = Boolean(state.historyGlobal);
+  const hs = window.CDO?.historySearch;
+  const matchEntry = hs ? (e) => hs.matches(e, filterTerm) : () => true;
+
+  let items;
+  if (globalMode) {
+    items = [];
+    (state.tabs || []).forEach((t) => {
+      (Array.isArray(t.history) ? t.history : []).forEach((e, idx) => {
+        if (matchEntry(e)) items.push({ entry: e, idx, ownerTab: t });
+      });
+    });
+    items.sort((a, b) => String(b.entry.timestamp || '').localeCompare(String(a.entry.timestamp || '')));
+    if (badgeResHistory) badgeResHistory.textContent = items.length ? `(${items.length} global)` : '';
+    if (titleSpan) titleSpan.textContent = `🕒 Histórico Global — ${items.length} execuções em ${state.tabs.length} abas`;
+  } else {
+    items = hist.map((e, idx) => ({ entry: e, idx, ownerTab: tab })).filter((it) => matchEntry(it.entry));
+    if (badgeResHistory) badgeResHistory.textContent = hist.length > 0 ? `(${hist.length})` : '';
+    if (titleSpan) titleSpan.textContent = `🕒 Histórico Individual de "${tab.name || tab.url || 'Requisição'}" (${hist.length} execuções)`;
+  }
 
   listEl.innerHTML = '';
-  if (hist.length === 0) {
-    listEl.innerHTML = `<div class="empty-hint">Nenhuma execução registrada para "${escapeHtml(tab.name || 'esta requisição')}" ainda. Clique em Send para registrar.</div>`;
+  if (items.length === 0) {
+    listEl.innerHTML = `<div class="empty-hint">${globalMode ? 'Nenhuma execução encontrada com esse filtro.' : `Nenhuma execução registrada para "${escapeHtml(tab.name || 'esta requisição')}" ainda. Clique em Send para registrar.`}</div>`;
     return;
   }
 
-  hist.forEach((entry, idx) => {
+  items.forEach(({ entry, idx, ownerTab }) => {
     const row = document.createElement('div');
     row.className = 'test-result-item';
     const isOk = entry.status >= 200 && entry.status < 300;
@@ -50,6 +71,7 @@ function renderRequestHistoryPane(tab) {
     const infoSpan = document.createElement('span');
     infoSpan.style.flex = '1';
     infoSpan.innerHTML = `
+      ${globalMode ? `<span style="color:var(--accent);font-size:11px;margin-right:6px;">${escapeHtml(ownerTab?.name || ownerTab?.url || 'aba')}</span>` : ''}
       <span class="${statusBadgeClass}">${escapeHtml(statusLabel)}</span>
       <span class="method-badge method-${escapeHtml(entry.method || 'GET')}" style="margin-left:6px;">${escapeHtml(entry.method || 'GET')}</span>
       <strong>${escapeHtml(entry.resolvedUrl || entry.url || '')}</strong>
@@ -62,14 +84,14 @@ function renderRequestHistoryPane(tab) {
     viewResBtn.title = 'Carregar a resposta desta execução no visualizador';
     viewResBtn.addEventListener('click', () => {
       if (entry.response) {
-        tab.response = structuredClone(entry.response);
-        tab.testResults = entry.testResults ? structuredClone(entry.testResults) : null;
-        tab.lastSentInspector = entry.requestSent ? structuredClone(entry.requestSent) : null;
+        ownerTab.response = structuredClone(entry.response);
+        ownerTab.testResults = entry.testResults ? structuredClone(entry.testResults) : null;
+        ownerTab.lastSentInspector = entry.requestSent ? structuredClone(entry.requestSent) : null;
         document.querySelectorAll('[data-res-tab]').forEach((b) => b.classList.remove('active'));
         document.querySelectorAll('.res-tab-pane').forEach((p) => p.classList.remove('active'));
         document.querySelector('[data-res-tab="body"]')?.classList.add('active');
         document.getElementById('res-tab-body')?.classList.add('active');
-        renderResponse(tab);
+        renderResponse(ownerTab);
         document.getElementById('statusMessage').textContent = `Visualizando resposta histórica de ${formatHistoryTimestamp(entry.timestamp)}.`;
       }
     });
@@ -79,15 +101,15 @@ function renderRequestHistoryPane(tab) {
     restoreBtn.textContent = '↺ Restaurar Req + Resp';
     restoreBtn.title = 'Restaurar URL, Params, Headers, Body e Resposta desta execução';
     restoreBtn.addEventListener('click', async () => {
-      tab.method = entry.method || tab.method;
-      tab.url = entry.url || tab.url;
-      if (entry.params) tab.params = structuredClone(entry.params);
-      if (entry.headers) tab.headers = structuredClone(entry.headers);
-      if (entry.auth) tab.auth = structuredClone(entry.auth);
-      if (entry.body) tab.body = structuredClone(entry.body);
-      if (entry.response) tab.response = structuredClone(entry.response);
-      if (entry.testResults) tab.testResults = structuredClone(entry.testResults);
-      await syncTabBackToCollectionItem(tab);
+      ownerTab.method = entry.method || ownerTab.method;
+      ownerTab.url = entry.url || ownerTab.url;
+      if (entry.params) ownerTab.params = structuredClone(entry.params);
+      if (entry.headers) ownerTab.headers = structuredClone(entry.headers);
+      if (entry.auth) ownerTab.auth = structuredClone(entry.auth);
+      if (entry.body) ownerTab.body = structuredClone(entry.body);
+      if (entry.response) ownerTab.response = structuredClone(entry.response);
+      if (entry.testResults) ownerTab.testResults = structuredClone(entry.testResults);
+      await syncTabBackToCollectionItem(ownerTab);
       await saveSessionState();
       renderAll();
       document.getElementById('statusMessage').textContent = `Estado da requisição restaurado da execução de ${formatHistoryTimestamp(entry.timestamp)}!`;
@@ -98,8 +120,8 @@ function renderRequestHistoryPane(tab) {
     delBtn.textContent = '✕';
     delBtn.title = 'Remover esta execução do histórico desta requisição';
     delBtn.addEventListener('click', async () => {
-      tab.history.splice(idx, 1);
-      await syncTabBackToCollectionItem(tab);
+      ownerTab.history.splice(idx, 1);
+      await syncTabBackToCollectionItem(ownerTab);
       await saveSessionState();
       renderAll();
     });
@@ -109,7 +131,7 @@ function renderRequestHistoryPane(tab) {
     diffBtn.textContent = '🔀 Diff c/ Atual';
     diffBtn.title = 'Comparar o JSON/Body desta execução histórica com a resposta atual da requisição';
     diffBtn.addEventListener('click', () => {
-      openHistoryDiffModal(tab, entry);
+      openHistoryDiffModal(ownerTab, entry);
     });
 
     row.appendChild(infoSpan);
@@ -220,7 +242,7 @@ function renderResponseCore(tab) {
 
   if (!res.ok && res.status === 0) {
     metaContainer.innerHTML = `<span class="meta-pill meta-err">Erro: ${escapeHtml(res.statusText || 'Falha de Rede')}</span><span>${escapeHtml(res.timeMs || 0)} ms</span>`;
-    bodyPre.textContent = res.error || 'Erro desconhecido ao executar a requisição.';
+    bodyPre.textContent = (res.error && (res.error.message || res.error)) || 'Erro desconhecido ao executar a requisição.';
     headersGrid.innerHTML = '';
     cookiesGrid.innerHTML = '';
     badgeResHeaders.textContent = '';
@@ -243,17 +265,23 @@ function renderResponseCore(tab) {
   const contentType = String((ctKey && res.headers[ctKey]) || '');
   const looksLikeJson = contentType.includes('json') || /^[\s]*[[{]/.test(String(res.body || ''));
   if (state.responseViewMode === 'pretty') {
+    // U-12: corpos grandes não passam por stringify+highlight integral (budget <1s p/ 5MB)
+    const MAX_PRETTY = 2 * 1024 * 1024;
     let prettyText = null;
-    try {
-      const parsed = JSON.parse(res.body);
-      prettyText = filterExpr
-        ? (() => {
-            const sub = getByPath(parsed, filterExpr);
-            return sub !== undefined ? JSON.stringify(sub, null, 2) : `(Caminho "${filterExpr}" não encontrado no JSON)`;
-          })()
-        : JSON.stringify(parsed, null, 2);
-    } catch {
-      prettyText = null;
+    if ((res.body || '').length > MAX_PRETTY) {
+      prettyText = `(Resposta grande demais para Pretty: ${formatBytes(res.sizeBytes || res.body.length)}. Use Raw ou Baixar.)\n\n` + String(res.body).slice(0, MAX_PRETTY);
+    } else {
+      try {
+        const parsed = JSON.parse(res.body);
+        prettyText = filterExpr
+          ? (() => {
+              const sub = getByPath(parsed, filterExpr);
+              return sub !== undefined ? JSON.stringify(sub, null, 2) : `(Caminho "${filterExpr}" não encontrado no JSON)`;
+            })()
+          : JSON.stringify(parsed, null, 2);
+      } catch {
+        prettyText = null;
+      }
     }
     if (prettyText !== null) {
       bodyPre.innerHTML = window.CDO?.jsonHighlight?.highlightJson(prettyText) || escapeHtml(prettyText);

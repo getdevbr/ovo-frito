@@ -8,6 +8,7 @@ function loadAllStores(storage, dataDir) {
     settings: storage.readStore('settings') || { theme: 'dark', activeEnvironmentId: '' },
     sessions: storage.readStore('sessions') || { tabs: [], activeTabId: null, responseCache: {} },
     cookies: storage.readStore('cookies') || [],
+    trash: storage.readStore('trash') || [],
     dataDir
   };
 }

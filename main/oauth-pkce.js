@@ -7,7 +7,7 @@ function base64Url(buffer) {
   return Buffer.from(buffer).toString('base64url');
 }
 
-function createOAuthPkce({ openExternal, httpEngine, timeoutMs = 120000 } = {}) {
+function createOAuthPkce({ openExternal, httpEngine, oauthTokenManager, timeoutMs = 120000 } = {}) {
   let current = null;
 
   function status() {
@@ -118,7 +118,31 @@ function createOAuthPkce({ openExternal, httpEngine, timeoutMs = 120000 } = {}) 
               redirectUri: `http://127.0.0.1:${server.address().port}/callback`,
               codeVerifier
             });
-            finish({ ok: true, tokens });
+            // Tokens (inclui refresh_token) vão só para o Token Manager no main;
+            // o renderer recebe apenas access_token e expiresAt.
+            let expiresAt = null;
+            if (oauthTokenManager && typeof oauthTokenManager.storeTokens === 'function') {
+              const authCfg = {
+                type: 'oauth2',
+                grantType: 'authorization_code',
+                tokenUrl,
+                clientId,
+                clientSecret: String(cfg.clientSecret || ''),
+                scopes: String(cfg.scopes || '')
+              };
+              const stored = oauthTokenManager.storeTokens(authCfg, tokens);
+              expiresAt = stored?.expiresAt || null;
+            } else if (tokens && tokens.expires_in) {
+              expiresAt = Date.now() + Number(tokens.expires_in) * 1000;
+            }
+            finish({
+              ok: true,
+              tokens: {
+                access_token: tokens?.access_token,
+                token_type: tokens?.token_type,
+                expiresAt
+              }
+            });
           } catch (err) {
             finish({ ok: false, error: err?.message || String(err) });
           }

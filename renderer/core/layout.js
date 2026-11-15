@@ -482,12 +482,21 @@ async function init() {
   state.history = initialData.history || [];
   state.cookies = initialData.cookies || [];
   state.settings = initialData.settings || { theme: 'dark', activeEnvironmentId: '' };
+  state.trash = Array.isArray(initialData.trash) ? initialData.trash : [];
+  window.CDO?.favorites?.pruneOrphans?.();
 
   let localBackup = null;
   try {
     localBackup = JSON.parse(localStorage.getItem('ovofrito_sessions_backup') || 'null');
   } catch {}
   state.sessions = initialData.sessions || localBackup || { tabs: [], activeTabId: null, responseCache: {} };
+  // U-06: fechamento anterior não foi limpo → sessão restaurada após crash
+  const crashed = initialData.sessions?.cleanShutdown === false || localBackup?.cleanShutdown === false;
+  if (crashed) {
+    setTimeout(() => {
+      window.CDO?.toast?.show?.({ message: 'Sessão restaurada após fechamento inesperado', type: 'warning' });
+    }, 800);
+  }
   if (!state.sessions.responseCache || Object.keys(state.sessions.responseCache).length === 0) {
     state.sessions.responseCache = initialData.settings?.responseCache || localBackup?.responseCache || {};
   }
@@ -520,13 +529,7 @@ async function init() {
     state.activeTabId = firstTab.id;
   }
 
-  // Atalho global Ctrl+K para buscar na Sidebar
-  window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-      e.preventDefault();
-      openCommandPalette();
-    }
-  });
+  // Ctrl+K migrado para features/keyboard-shortcuts.js (registry de comandos, U-04)
 
   // Navegação da Sidebar
   document.querySelectorAll('.sidebar-nav-btn').forEach((btn) => {
@@ -943,6 +946,45 @@ async function init() {
   document.getElementById('oauthGrantType').addEventListener('change', (e) => {
     const tab = getActiveTab();
     if (tab) tab.auth.grantType = e.target.value;
+    const grant = e.target.value;
+    const pkceFields = document.getElementById('oauthPkceFields');
+    if (pkceFields) {
+      pkceFields.classList.toggle('hidden', grant !== 'authorization_code');
+      pkceFields.style.display = grant === 'authorization_code' ? '' : 'none';
+    }
+    const pwFields = document.getElementById('oauthPasswordFields');
+    if (pwFields) {
+      pwFields.classList.toggle('hidden', grant !== 'password');
+      pwFields.style.display = grant === 'password' ? '' : 'none';
+    }
+  });
+
+  document.getElementById('oauthUsername')?.addEventListener('input', (e) => {
+    const tab = getActiveTab();
+    if (tab) tab.auth.username = e.target.value;
+  });
+
+  document.getElementById('oauthPassword')?.addEventListener('input', (e) => {
+    const tab = getActiveTab();
+    if (tab) tab.auth.password = e.target.value;
+  });
+
+  document.getElementById('oauthAutoRefresh')?.addEventListener('change', (e) => {
+    const tab = getActiveTab();
+    if (tab) tab.auth.autoRefresh = Boolean(e.target.checked);
+  });
+
+  document.getElementById('btnClearOAuthToken')?.addEventListener('click', async () => {
+    const tab = getActiveTab();
+    if (!tab) return;
+    tab.auth.token = '';
+    document.getElementById('oauthAccessTokenInput').value = '';
+    try {
+      const authCfg = buildOAuthTokenPayload(tab);
+      await IPC.invoke('pm:oauth:token:clear', authCfg);
+    } catch {}
+    document.getElementById('statusMessage').textContent = 'Token OAuth local limpo.';
+    updateOAuthExpiryBadge(tab);
   });
 
   document.getElementById('oauthTokenUrl').addEventListener('input', (e) => {
@@ -994,6 +1036,53 @@ async function init() {
     if (tab) tab.auth.sessionToken = e.target.value;
   });
 
+  function buildOAuthTokenPayload(tab) {
+    const a = tab?.auth || {};
+    return {
+      type: 'oauth2',
+      grantType: a.grantType || 'client_credentials',
+      tokenUrl: interpolateVariables(a.tokenUrl || ''),
+      clientId: interpolateVariables(a.clientId || ''),
+      clientSecret: interpolateVariables(a.clientSecret || ''),
+      username: interpolateVariables(a.username || ''),
+      password: interpolateVariables(a.password || ''),
+      scopes: interpolateVariables(a.scopes || ''),
+      audience: interpolateVariables(a.audience || '')
+    };
+  }
+
+  async function updateOAuthExpiryBadge(tab) {
+    const badge = document.getElementById('oauthTokenExpiryBadge');
+    if (!badge) return;
+    if (!tab || tab.auth?.type !== 'oauth2') {
+      badge.classList.add('hidden');
+      return;
+    }
+    try {
+      const st = await IPC.invoke('pm:oauth:token:status', buildOAuthTokenPayload(tab));
+      if (!st?.cached || !st.expiresAt) {
+        badge.classList.add('hidden');
+        return;
+      }
+      const diffMs = Number(st.expiresAt) - Date.now();
+      badge.classList.remove('hidden');
+      if (diffMs <= 0) {
+        badge.className = 'badge';
+        badge.style.color = '#ef4444';
+        badge.textContent = '⏱ Token expirado';
+      } else {
+        const totalSec = Math.floor(diffMs / 1000);
+        const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+        const ss = String(totalSec % 60).padStart(2, '0');
+        badge.className = 'badge';
+        badge.style.color = diffMs < 60000 ? '#ef4444' : '';
+        badge.textContent = `⏱ expira em ${mm}:${ss}${st.hasRefreshToken ? ' ↻' : ''}`;
+      }
+    } catch {
+      badge.classList.add('hidden');
+    }
+  }
+
   document.getElementById('btnFetchOAuthToken').addEventListener('click', async () => {
     const tab = getActiveTab();
     if (tab?.auth?.grantType === 'authorization_code') {
@@ -1004,31 +1093,19 @@ async function init() {
       document.getElementById('statusMessage').textContent = 'Informe a Access Token URL para obter o token OAuth 2.0.';
       return;
     }
-    const res = await IPC.invoke('pm:runtime:request', {
-      method: 'POST',
-      url: interpolateVariables(tab.auth.tokenUrl),
-      headers: [{ key: 'Content-Type', value: 'application/x-www-form-urlencoded', enabled: true }],
-      body: {
-        mode: 'urlencoded',
-        urlencoded: [
-          { key: 'grant_type', value: tab.auth.grantType || 'client_credentials', enabled: true },
-          { key: 'client_id', value: interpolateVariables(tab.auth.clientId || ''), enabled: true },
-          { key: 'client_secret', value: interpolateVariables(tab.auth.clientSecret || ''), enabled: true }
-        ]
-      }
-    });
-    if (res.ok) {
-      try {
-        const parsed = JSON.parse(res.body);
-        const tk = parsed.access_token || parsed.token || parsed.id_token || '';
-        if (tk) {
-          tab.auth.token = String(tk);
-          document.getElementById('oauthAccessTokenInput').value = tab.auth.token;
-          document.getElementById('statusMessage').textContent = 'Access Token OAuth 2.0 obtido com sucesso!';
-        }
-      } catch {}
+    const res = await IPC.invoke('pm:oauth:token:fetch', buildOAuthTokenPayload(tab));
+    if (res?.ok && res.accessToken) {
+      tab.auth.token = String(res.accessToken);
+      document.getElementById('oauthAccessTokenInput').value = tab.auth.token;
+      document.getElementById('statusMessage').textContent = 'Access Token OAuth 2.0 obtido com sucesso!';
+      updateOAuthExpiryBadge(tab);
     } else {
-      document.getElementById('statusMessage').textContent = `Falha ao obter token OAuth 2.0: ${res.error || res.statusText}`;
+      const err = res?.error;
+      const msg = typeof err === 'object' ? (err.message || err.code) : err;
+      document.getElementById('statusMessage').textContent = `Falha ao obter token OAuth 2.0: ${msg || 'erro desconhecido'}`;
+      if (err?.code === 'OAUTH_REAUTH_REQUIRED') {
+        document.getElementById('statusMessage').textContent = 'Token expirado e sem refresh_token: clique em "Autorizar PKCE" para renovar a autorização.';
+      }
     }
   });
 
@@ -1237,6 +1314,16 @@ async function init() {
     renderResponse(getActiveTab());
   });
 
+  // U-07: busca no histórico (individual ou global)
+  document.getElementById('histSearchInput')?.addEventListener('input', (e) => {
+    state.historyFilter = e.target.value;
+    renderRequestHistoryPane(getActiveTab());
+  });
+  document.getElementById('histGlobalToggle')?.addEventListener('change', (e) => {
+    state.historyGlobal = e.target.checked;
+    renderRequestHistoryPane(getActiveTab());
+  });
+
   document.getElementById('btnCopyResponse').addEventListener('click', () => {
     const text = document.getElementById('responseBodyPre').textContent || '';
     navigator.clipboard.writeText(text);
@@ -1361,15 +1448,23 @@ async function init() {
     }
   });
 
-  document.getElementById('btnDeleteCustomEnvProfile')?.addEventListener('click', () => {
+  document.getElementById('btnDeleteCustomEnvProfile')?.addEventListener('click', async () => {
     const env = state.environments.find((x) => x.id === editingEnvId);
     if (!env || !env.profile) return;
     ensureEnvProfileStructure(env);
     const idx = env.customProfiles.findIndex((cp) => cp.id === env.profile);
     if (idx !== -1) {
-      const removedId = env.customProfiles[idx].id;
-      env.customProfiles.splice(idx, 1);
-      delete env.profileVariables[removedId];
+      const removedProfile = env.customProfiles[idx];
+      if (window.CDO?.trash?.remove) {
+        await window.CDO.trash.remove({
+          type: 'profile',
+          item: removedProfile,
+          origin: { environmentId: env.id, index: idx }
+        });
+      } else {
+        env.customProfiles.splice(idx, 1);
+      }
+      delete env.profileVariables[removedProfile.id];
     }
     switchEnvironmentActiveProfile(env, '', '');
     syncEnvModalProfileControls(env);
@@ -1419,6 +1514,20 @@ async function init() {
       env.confirmDestructive = checked;
     }
     updateUrlInterpolatedPreview(getActiveTab());
+  });
+
+  document.getElementById('envIsProdCheckbox')?.addEventListener('change', (e) => {
+    const env = state.environments.find((x) => x.id === editingEnvId);
+    if (!env) return;
+    const checked = Boolean(e.target.checked);
+    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
+    if (cp) {
+      cp.isProduction = checked;
+    } else {
+      env.isProduction = checked;
+    }
+    persistStore('environments');
+    window.CDO?.app?.emitAppHook?.('sidebar:rendered', {});
   });
 
   document.getElementById('btnManageEnv').addEventListener('click', () => {
@@ -1567,7 +1676,22 @@ async function init() {
   document.getElementById('btnDeleteEnv').addEventListener('click', async () => {
     const idx = state.environments.findIndex((e) => e.id === editingEnvId);
     if (idx !== -1) {
-      state.environments.splice(idx, 1);
+      const envItem = state.environments[idx];
+      if (window.CDO?.trash?.remove) {
+        await window.CDO.trash.remove({
+          type: 'environment',
+          item: envItem,
+          origin: { index: idx },
+          confirm: async ({ count }) => window.CDO.dialog.confirm({
+            title: 'Excluir Environment',
+            message: `Excluir o Environment "${envItem.name}" com ${count} variáveis?`,
+            confirmLabel: 'Excluir',
+            danger: true
+          })
+        });
+      } else {
+        state.environments.splice(idx, 1);
+      }
       if (state.settings.activeEnvironmentId === editingEnvId) {
         state.settings.activeEnvironmentId = state.environments[0]?.id || '';
       }
@@ -2082,6 +2206,25 @@ async function init() {
 
   renderAll();
 
+  // U-06: restaura sub-abas do editor/resposta e rolagem salvas na sessão
+  try {
+    const ui = state.sessions?.ui;
+    if (ui?.reqTab) {
+      document.querySelector(`[data-req-tab="${ui.reqTab}"]`)?.click();
+    }
+    if (ui?.resTab) {
+      document.querySelector(`[data-res-tab="${ui.resTab}"]`)?.click();
+    }
+    if (ui?.bodyScroll) {
+      const el = document.getElementById('bodyRawInput');
+      if (el) el.scrollTop = ui.bodyScroll;
+    }
+    if (ui?.responseScroll) {
+      const el = document.getElementById('responseBodyPre');
+      if (el) el.scrollTop = ui.responseScroll;
+    }
+  } catch {}
+
   window.CDO = window.CDO || {};
   window.CDO.hookBus = window.CDO.hookBus || window.CDO.hooks.createHookBus();
   window.CDO.app = {
@@ -2102,9 +2245,27 @@ async function init() {
     sendActiveRequest,
     resolveEffectiveTabAuth,
     ensureNetworkSettings,
-    formatBytes
+    formatBytes,
+    updateOAuthExpiryBadge,
+    closeTab,
+    executeBulkTabClose,
+    syncTabBackToCollectionItem,
+    openEnvModal,
+    openCommandPalette,
+    openNetworkModal,
+    saveSessionState,
+    applyTheme,
+    applyLayoutState,
+    saveLayoutPrefs
   };
   window.CDO.hookBus.emit('app:ready', { state });
+
+  if (window.pm?.sdk?.IPC?.subscribe) {
+    window.pm.sdk.IPC.subscribe('pm:oauth:token:refreshed', () => {
+      updateOAuthExpiryBadge(getActiveTab());
+    });
+  }
+  window.CDO.hookBus.on?.('tab:activated', () => updateOAuthExpiryBadge(getActiveTab()));
 }
 
 window.addEventListener('DOMContentLoaded', init);

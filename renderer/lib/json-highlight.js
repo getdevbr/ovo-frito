@@ -47,9 +47,12 @@
     while ((m = VAR_RE.exec(raw)) !== null) {
       html += escapeHtml(raw.slice(last, m.index));
       const verdict = classifier(varInnerKey(m[0]));
-      const cls = verdict === 'ok' ? 'var-ok' : verdict === 'missing' ? 'var-missing' : null;
+      const v = verdict && typeof verdict === 'object' ? verdict.verdict : verdict;
+      const title = verdict && typeof verdict === 'object' ? verdict.title : null;
+      const cls = typeof v === 'string' && /^[a-z]+$/.test(v) ? `var-${v}` : null;
+      const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
       html += cls
-        ? `<span class="${cls}">${escapeHtml(m[0])}</span>`
+        ? `<span class="${cls}"${titleAttr}>${escapeHtml(m[0])}</span>`
         : escapeHtml(m[0]);
       last = m.index + m[0].length;
     }

@@ -10,8 +10,9 @@ const capture = require('./capture');
 const oauth = require('./oauth');
 const vault = require('./vault');
 const db = require('./db');
+const git = require('./git');
 
-const REGISTRARS = [storage, runtime, scripts, mock, load, sync, capture, oauth, vault, db];
+const REGISTRARS = [storage, runtime, scripts, mock, load, sync, capture, oauth, vault, db, git];
 
 function registerAllIpcHandlers(ctx) {
   for (const register of REGISTRARS) {

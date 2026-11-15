@@ -9,6 +9,10 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+  <!-- U-09: faixa vermelha quando Profile/Env marcado como Produção -->
+  <div id="prodGuardStrip" class="hidden" role="alert" style="position:sticky; top:0; z-index:1000; background:#7f1d1d; color:#fecaca; font-size:12px; font-weight:600; padding:6px 14px; text-align:center; letter-spacing:.3px;">
+    🚨 PRODUÇÃO ATIVA — todo envio exige confirmação. Cuidado com dados reais.
+  </div>
   <!-- Top Header Bar -->
   <header class="topbar">
     <div class="topbar-brand">
@@ -74,6 +78,9 @@
         <button class="sidebar-nav-btn" data-sidebar-tab="environments" title="Environments &amp; Profiles">
           <span>🌐 Environments</span>
         </button>
+        <button class="sidebar-nav-btn" data-sidebar-tab="trash" title="Lixeira">
+          <span>🗑 Lixeira</span>
+        </button>
       </nav>
 
       <div class="sidebar-panel">
@@ -96,6 +103,14 @@
             <button id="btnNewEnvironment" class="btn-small">+ Env</button>
           </div>
           <div id="environmentsList" class="tree-list"></div>
+        </div>
+
+        <!-- Trash Panel (U-08) -->
+        <div id="sidebar-trash" class="sidebar-content">
+          <div class="sidebar-toolbar">
+            <span class="sidebar-heading">Lixeira</span>
+          </div>
+          <div id="trashList" class="tree-list"></div>
         </div>
       </div>
     </aside>
@@ -166,7 +181,8 @@
           </div>
           <button id="btnToggleVarPicker" type="button" class="btn-small" style="border:none; border-left:1px solid var(--border-color); border-radius:0; height:36px;" title="Listar e inserir variáveis disponíveis (Atalho: Ctrl+Espaço em qualquer campo)">{{x}}</button>
         </div>
-        <button id="btnSend" class="btn-send">Send</button>
+        <button id="btnSend" class="btn-send" aria-label="Enviar requisição (Ctrl+Enter)">Send</button>
+        <span id="zoomLevelBadge" title="Zoom da interface — Ctrl + / - / 0" style="font-size:10px;color:var(--text-secondary);align-self:center;min-width:34px;text-align:center;">100%</span>
 
         <!-- Popover de Autocomplete de Variáveis {{...}} -->
         <div id="varAutocompletePopover" class="disposition-popover hidden" style="left:110px; right:auto; top:44px; min-width:360px; max-width:520px; max-height:280px; overflow-y:auto; z-index:1200;"></div>
@@ -296,6 +312,16 @@
                 <input id="oauthClientSecret" type="password" class="text-input" placeholder="client_secret" />
               </div>
             </div>
+            <div class="chain-grid" id="oauthPasswordFields" style="margin-top:8px; display:none;">
+              <div>
+                <label>Username:</label>
+                <input id="oauthUsername" type="text" class="text-input" placeholder="usuário (grant password)" />
+              </div>
+              <div>
+                <label>Password:</label>
+                <input id="oauthPassword" type="password" class="text-input" placeholder="senha do usuário" />
+              </div>
+            </div>
             <div class="chain-grid" id="oauthPkceFields" style="margin-top:8px;">
               <div>
                 <label>Authorization URL:</label>
@@ -309,6 +335,13 @@
                 <label>Redirect Port (127.0.0.1):</label>
                 <input id="oauthRedirectPort" type="number" class="text-input" placeholder="8765" min="1024" max="65535" />
               </div>
+            </div>
+            <div class="chain-grid" style="margin-top:8px; align-items:center;">
+              <label style="display:flex; align-items:center; gap:6px; font-size:12px;">
+                <input id="oauthAutoRefresh" type="checkbox" /> Renovar token automaticamente
+              </label>
+              <span id="oauthTokenExpiryBadge" class="badge hidden"></span>
+              <button id="btnClearOAuthToken" class="btn-small btn-danger-ghost" type="button">🗑 Limpar token</button>
             </div>
             <div class="chain-actions">
               <button id="btnFetchOAuthToken" class="btn-small">🔑 Obter Access Token Localmente</button>
@@ -557,6 +590,17 @@
               style="max-width: 260px; padding: 3px 8px;"
               placeholder="🔍 Filtrar caminho JSON ou texto (ex: 0.title)..."
             />
+            <input
+              id="resBodySearchInput"
+              type="text"
+              class="kv-input"
+              style="max-width: 180px; padding: 3px 8px;"
+              placeholder="🔎 Buscar no corpo..."
+              title="Busca textual no corpo da resposta (U-12)"
+            />
+            <span id="resSearchCount" class="hidden" style="font-size:11px;color:var(--text-secondary);white-space:nowrap;"></span>
+            <button id="btnResSearchPrev" class="btn-small hidden" title="Ocorrência anterior">▲</button>
+            <button id="btnResSearchNext" class="btn-small hidden" title="Próxima ocorrência">▼</button>
             <div class="chain-actions">
               <button id="btnCopyResponse" class="btn-small" title="Copiar corpo da resposta">📋 Copiar</button>
               <button id="btnDownloadResponse" class="btn-small" title="Baixar resposta como arquivo (.json / .txt)">💾 Baixar</button>
@@ -601,6 +645,10 @@
         <div id="res-tab-history" class="res-tab-pane">
           <div class="pane-header">
             <span id="resHistoryTitleSpan">🕒 Histórico de Execuções Individual desta Requisição</span>
+            <input id="histSearchInput" type="text" class="kv-input" style="max-width:200px;padding:3px 8px;" placeholder="🔎 Filtrar histórico..." title="U-07: filtra por URL, método, status ou data" />
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-secondary);cursor:pointer;" title="Buscar em todas as abas/requisições">
+              <input id="histGlobalToggle" type="checkbox" /> Global
+            </label>
             <button id="btnClearReqHistoryInline" class="btn-small btn-danger-ghost">Limpar Histórico desta Req</button>
           </div>
           <div id="requestHistoryList" class="res-tests-list">
@@ -686,6 +734,11 @@
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--text-primary); margin-top:6px;">
             <input id="envConfirmDestructiveCheckbox" type="checkbox" style="accent-color:var(--accent); width:14px; height:14px;" />
             <span>🛡️ <strong>Trava Anti-Acidente:</strong> Exigir confirmação antes de disparar <code>DELETE</code>, <code>PUT</code>, <code>PATCH</code> ou <code>POST</code> quando este Profile / Environment estiver ativo</span>
+          </label>
+
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:#fca5a5; margin-top:4px;">
+            <input id="envIsProdCheckbox" type="checkbox" style="accent-color:#ef4444; width:14px; height:14px;" />
+            <span>🚨 <strong>Ambiente de Produção:</strong> faixa vermelha no topo, botão vira "Enviar em PROD" e <strong>todo</strong> envio exige confirmação (URL interpolada exibida)</span>
           </label>
         </div>
 
@@ -1012,6 +1065,7 @@
         <button type="button" class="subtab" data-cfg-tab="network" role="tab" aria-selected="false">🌐 Rede</button>
         <button type="button" class="subtab" data-cfg-tab="security" role="tab" aria-selected="false">🔒 Segurança</button>
         <button type="button" class="subtab" data-cfg-tab="data" role="tab" aria-selected="false">💾 Dados</button>
+        <button type="button" class="subtab" data-cfg-tab="shortcuts" role="tab" aria-selected="false">⌨ Atalhos</button>
       </div>
       <div class="modal-body">
         <!-- Aba: Aparência, Tema & Disposição das Janelas -->
@@ -1153,6 +1207,9 @@
             </div>
           </div>
         </div>
+
+        <!-- Aba: Atalhos de teclado (preenchida por features/keyboard-shortcuts.js) -->
+        <div class="cfg-pane" id="cfgPane-shortcuts" role="tabpanel"></div>
       </div>
       <div class="modal-footer">
         <span style="font-size:11px; color:var(--text-secondary);">Salvo localmente em <code>./data/settings.json</code></span>
@@ -1348,6 +1405,17 @@
   <script src="lib/route-matcher.js"></script>
   <script src="lib/stats.js"></script>
   <script src="lib/api-docs.js"></script>
+  <script src="lib/command-registry.js"></script>
+  <script src="lib/shortcuts.js"></script>
+  <script src="lib/error-hints.js"></script>
+  <script src="lib/var-resolution.js"></script>
+  <script src="lib/trash.js"></script>
+  <script src="lib/undo-stack.js"></script>
+  <script src="lib/session-serializer.js"></script>
+  <script src="lib/curl-detect.js"></script>
+  <script src="lib/recents.js"></script>
+  <script src="lib/text-search.js"></script>
+  <script src="lib/history-search.js"></script>
   <!-- Core modules: ordem load-bearing. state primeiro; layout (init) por último. -->
   <script src="core/state.js"></script>
   <script src="core/env.js"></script>
@@ -1361,6 +1429,18 @@
   <script src="core/runner.js"></script>
   <script src="core/modals.js"></script>
   <script src="core/layout.js"></script>
+  <script src="features/ui-toast.js"></script>
+  <script src="features/ui-dialog.js"></script>
+  <script src="features/keyboard-shortcuts.js"></script>
+  <script src="features/error-panel.js"></script>
+  <script src="features/trash-ui.js"></script>
+  <script src="features/curl-paste.js"></script>
+  <script src="features/favorites.js"></script>
+  <script src="features/prod-guard.js"></script>
+  <script src="features/response-search.js"></script>
+  <script src="features/compare-responses.js"></script>
+  <script src="features/file-drop.js"></script>
+  <script src="features/ui-zoom.js"></script>
   <script src="features/type-generator.js"></script>
   <script src="features/response-table.js"></script>
   <script src="features/response-viewers.js"></script>
@@ -1370,6 +1450,7 @@
   <script src="features/mock-server-ui.js"></script>
   <script src="features/load-test.js"></script>
   <script src="features/folder-sync-ui.js"></script>
+  <script src="features/git-sync-ui.js"></script>
   <script src="features/capture-ui.js"></script>
   <script src="features/api-docs.js"></script>
   <script src="features/websocket-ui.js"></script>

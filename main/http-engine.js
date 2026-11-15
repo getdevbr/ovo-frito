@@ -5,6 +5,7 @@ const https = require('https');
 const tls = require('tls');
 const { isTextual } = require('../renderer/lib/content-sniff');
 const { signAwsRequest, parseDigestChallenge, buildDigestAuthorization, randomCnonce } = require('./auth-signers');
+const { resolveVaultRefs, maskSecrets } = require('./vault-resolver');
 
 function sanitizeHeaderValue(str) {
   return String(str ?? '').replace(/[\r\n]+/g, ' ').replace(/"/g, "'").trim();
@@ -71,7 +72,7 @@ function buildMtlsOptions(mtlsCfg) {
   return opts;
 }
 
-function createHttpEngine({ storage, cookieJar }) {
+function createHttpEngine({ storage, cookieJar, vault, oauthTokenManager: initialTokenManager }) {
   function resolveNetworkSettings(requestSpec) {
     const storedSettings = storage.readStore('settings') || {};
     const net = {
@@ -104,7 +105,78 @@ function createHttpEngine({ storage, cookieJar }) {
     return net;
   }
 
-  function executeHttpRequest(requestSpec) {
+  let oauthTokenManager = initialTokenManager || null;
+
+  function setOAuthTokenManager(manager) {
+    oauthTokenManager = manager || null;
+  }
+
+  function oauthErrorResult(error) {
+    return {
+      ok: false,
+      error: error && typeof error === 'object' ? error : { code: 'OAUTH_TOKEN_ERROR', message: String(error || 'Erro OAuth') },
+      status: 0,
+      statusText: 'OAuth Token Error',
+      timeMs: 0,
+      sizeBytes: 0,
+      headers: {},
+      cookies: [],
+      body: ''
+    };
+  }
+
+  function isOAuthManagedAuth(auth) {
+    return Boolean(
+      auth &&
+      auth.type === 'oauth2' &&
+      auth.autoRefresh === true &&
+      oauthTokenManager &&
+      typeof oauthTokenManager.getToken === 'function'
+    );
+  }
+
+  async function sendWithOAuth(spec, { forceRefresh = false, retried = false } = {}) {
+    let effectiveSpec = spec;
+    const authCfg = spec.auth;
+    const managed = isOAuthManagedAuth(authCfg);
+    if (managed) {
+      const tokenRes = await oauthTokenManager.getToken(authCfg, { forceRefresh });
+      if (!tokenRes || tokenRes.ok !== true) {
+        return oauthErrorResult(tokenRes?.error);
+      }
+      effectiveSpec = {
+        ...spec,
+        auth: { ...authCfg, token: tokenRes.accessToken }
+      };
+    }
+    const res = await executeResolvedRequest(effectiveSpec);
+    if (managed && !retried && res && res.status === 401 && oauthTokenManager.invalidate) {
+      oauthTokenManager.invalidate(authCfg);
+      return sendWithOAuth(spec, { forceRefresh: true, retried: true });
+    }
+    return res;
+  }
+
+  async function executeHttpRequest(requestSpec) {
+    const vaultResult = resolveVaultRefs(requestSpec, vault);
+    if (!vaultResult.ok) {
+      return {
+        ok: false,
+        error: vaultResult.error,
+        status: 0,
+        statusText: 'Vault Error',
+        timeMs: 0,
+        sizeBytes: 0,
+        headers: {},
+        cookies: [],
+        body: ''
+      };
+    }
+    const res = await sendWithOAuth(vaultResult.spec);
+    return maskSecrets(res, vaultResult.secrets);
+  }
+
+  function executeResolvedRequest(requestSpec) {
     return new Promise((resolve) => {
       const startTime = process.hrtime.bigint();
       let parsedUrl;
@@ -117,7 +189,7 @@ function createHttpEngine({ storage, cookieJar }) {
       } catch (err) {
         return resolve({
           ok: false,
-          error: `URL inválida: ${err.message}`,
+          error: { code: 'INVALID_URL', message: `URL inválida: ${err.message}` },
           status: 0,
           statusText: 'Invalid URL',
           timeMs: 0,
@@ -302,7 +374,7 @@ function createHttpEngine({ storage, cookieJar }) {
               });
               if (!digestAuthorization) return resolve({
                 ok: false,
-                error: 'Falha ao montar header Digest a partir do desafio 401',
+                error: { code: 'DIGEST_AUTH_ERROR', message: 'Falha ao montar header Digest a partir do desafio 401' },
                 status: res.statusCode,
                 statusText: res.statusMessage || '',
                 timeMs: Math.round(Number(process.hrtime.bigint() - startTime) / 1e6),
@@ -380,7 +452,7 @@ function createHttpEngine({ storage, cookieJar }) {
         const timeMs = Math.round(Number(endTime - startTime) / 1e6);
         resolve({
           ok: false,
-          error: err.message,
+          error: { code: err.code || 'NETWORK_ERROR', message: err.message || String(err) },
           status: 0,
           statusText: 'Network / SSL / Proxy Error',
           timeMs,
@@ -520,6 +592,7 @@ function createHttpEngine({ storage, cookieJar }) {
   return {
     executeHttpRequest,
     resolveNetworkSettings,
+    setOAuthTokenManager,
     buildMultipartBuffer,
     shouldBypassProxy,
     buildMtlsOptions

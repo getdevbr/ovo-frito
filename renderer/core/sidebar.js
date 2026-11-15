@@ -18,6 +18,64 @@ function renderSidebarCore() {
   // Collections
   const colList = document.getElementById('collectionsList');
   colList.innerHTML = '';
+
+  // U-05: seções Favoritos e Recentes no topo (somente sem filtro ativo)
+  if (!filterTerm && window.CDO?.favorites) {
+    const fav = window.CDO.favorites;
+    const renderQuickRow = (id, icon) => {
+      const found = fav.findRequest(id);
+      if (!found) return null;
+      const { item, collectionId } = found;
+      const row = document.createElement('div');
+      row.className = 'tree-item';
+      row.style.cursor = 'pointer';
+      row.innerHTML = `<span class="method-badge method-${item.method || 'GET'}">${item.method || 'GET'}</span> <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${icon} ${escapeHtml(item.name || item.url || '')}</span>`;
+      row.addEventListener('click', () => openRequestInTab(item, collectionId));
+      return row;
+    };
+    const favIds = state.settings.favorites || [];
+    const recIds = (state.settings.recents || []).filter((id) => !favIds.includes(id));
+    if (favIds.length || recIds.length) {
+      const mkSection = (title, ids, icon) => {
+        const sec = document.createElement('div');
+        sec.className = 'collection-group';
+        const head = document.createElement('div');
+        head.className = 'collection-header';
+        head.innerHTML = `<span style="font-size:11px;font-weight:600;color:var(--text-secondary);padding:4px 2px;">${title}</span>`;
+        sec.appendChild(head);
+        const wrap = document.createElement('div');
+        ids.slice(0, 10).forEach((id) => {
+          const row = renderQuickRow(id, icon);
+          if (row) wrap.appendChild(row);
+        });
+        sec.appendChild(wrap);
+        return sec;
+      };
+      if (favIds.length) colList.appendChild(mkSection('⭐ Favoritos', favIds, '★'));
+      if (recIds.length) colList.appendChild(mkSection('🕘 Recentes', recIds, '•'));
+    }
+  }
+
+  // U-01: empty state de onboarding quando não há collections
+  if (!filterTerm && (!state.collections || state.collections.length === 0)) {
+    const welcome = document.createElement('div');
+    welcome.className = 'empty-hint';
+    welcome.style.cssText = 'padding:18px 10px;text-align:center;';
+    welcome.innerHTML = `
+      <div style="font-size:22px;margin-bottom:6px;">🍳 Bem-vindo ao Ovo Frito</div>
+      <div style="margin-bottom:10px;">Cliente HTTP local-first. Comece rápido:</div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center;">
+        <button class="btn-small" id="onboardNewCollection">+ Criar Collection</button>
+        <button class="btn-small" id="onboardImport">📥 Importar (.ovo, cURL, OpenAPI)</button>
+        <button class="btn-small" id="onboardBlankTab">＋ Nova aba em branco</button>
+      </div>
+      <div style="margin-top:10px;font-size:11px;opacity:.7;">Dica: pressione Ctrl+K para a paleta de comandos.</div>`;
+    colList.appendChild(welcome);
+    welcome.querySelector('#onboardNewCollection')?.addEventListener('click', () => document.getElementById('btnNewCollection')?.click());
+    welcome.querySelector('#onboardImport')?.addEventListener('click', () => document.getElementById('btnOpenImportModal')?.click());
+    welcome.querySelector('#onboardBlankTab')?.addEventListener('click', () => { if (typeof createBlankTab === 'function') { const t = createBlankTab(); state.tabs.push(t); state.activeTabId = t.id; saveSessionState(); renderAll(); } });
+  }
+
   state.collections.forEach((col, colIdx) => {
     const filteredItems = (col.items || []).filter((it) => {
       if (!filterTerm) return true;
@@ -173,6 +231,20 @@ function renderSidebarCore() {
     delColBtn.title = 'Excluir Collection';
     delColBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
+      if (window.CDO?.trash?.remove) {
+        await window.CDO.trash.remove({
+          type: 'collection',
+          item: col,
+          origin: { index: colIdx },
+          confirm: async ({ count }) => window.CDO.dialog.confirm({
+            title: 'Excluir Collection',
+            message: `Excluir a Collection "${col.name}" e suas ${count} requisições?`,
+            confirmLabel: 'Excluir',
+            danger: true
+          })
+        });
+        return;
+      }
       state.collections.splice(colIdx, 1);
       await persistStore('collections');
       renderSidebar();
@@ -304,12 +376,30 @@ function renderSidebarCore() {
         renderSidebar();
       });
 
+      const favBtn = document.createElement('button');
+      favBtn.className = 'tree-item-delete';
+      const isFav = window.CDO?.favorites?.isFavorite?.(item.id);
+      favBtn.textContent = isFav ? '★' : '☆';
+      favBtn.title = isFav ? 'Remover dos Favoritos' : 'Favoritar';
+      favBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await window.CDO?.favorites?.toggleFavorite?.(item.id);
+      });
+
       const delBtn = document.createElement('button');
       delBtn.className = 'tree-item-delete';
       delBtn.textContent = '✕';
       delBtn.title = 'Remover da Collection';
       delBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        if (window.CDO?.trash?.remove) {
+          await window.CDO.trash.remove({
+            type: 'request',
+            item,
+            origin: { collectionId: col.id, index: realIdx }
+          });
+          return;
+        }
         if (realIdx !== -1) col.items.splice(realIdx, 1);
         await persistStore('collections');
         renderSidebar();
@@ -318,6 +408,7 @@ function renderSidebarCore() {
       row.appendChild(expReqOvoBtn);
       row.appendChild(renReqBtn);
       row.appendChild(dupBtn);
+      row.appendChild(favBtn);
       row.appendChild(delBtn);
       itemsWrap.appendChild(row);
     });
@@ -437,6 +528,7 @@ function renderSidebar() {
 
 
 function openRequestInTab(item, collectionId = null) {
+  if (item?.id) window.CDO?.favorites?.touchRecent?.(item.id);
   // Se já houver uma aba aberta para este item da Collection, foca nela
   if (item.id && collectionId) {
     const existingTab = state.tabs.find((t) => t.collectionItemId === item.id && t.collectionId === collectionId);

@@ -37,14 +37,37 @@
     const out = document.getElementById('vaultOutputPre');
     const status = document.getElementById('vaultStatus');
 
+    let pendingUnlock = null;
+    window.CDO = window.CDO || {};
+    window.CDO.vault = {
+      requestUnlock() {
+        return new Promise((resolve) => {
+          if (pendingUnlock) {
+            pendingUnlock(false);
+          }
+          pendingUnlock = resolve;
+          modal.classList.remove('hidden');
+          document.getElementById('vaultPasswordInput')?.focus();
+          refreshStatus();
+        });
+      }
+    };
+    function settleUnlock(value) {
+      if (pendingUnlock) {
+        const fn = pendingUnlock;
+        pendingUnlock = null;
+        fn(value);
+      }
+    }
+
     async function refreshStatus() {
       const res = await app().ipc.invoke('pm:vault:status');
       status.textContent = res?.unlocked ? `Desbloqueado (${res.count} segredos)` : 'Bloqueado';
     }
 
     btn.addEventListener('click', () => { modal.classList.remove('hidden'); refreshStatus(); });
-    document.getElementById('btnCloseVaultModal').onclick = () => modal.classList.add('hidden');
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+    document.getElementById('btnCloseVaultModal').onclick = () => { modal.classList.add('hidden'); settleUnlock(false); };
+    modal.addEventListener('click', (e) => { if (e.target === modal) { modal.classList.add('hidden'); settleUnlock(false); } });
 
     document.getElementById('btnVaultUnlock').onclick = async () => {
       const password = document.getElementById('vaultPasswordInput').value;
@@ -52,12 +75,14 @@
       out.textContent = JSON.stringify(res, null, 2);
       await refreshStatus();
       if (statusEl() && res?.ok) statusEl().textContent = 'Cofre desbloqueado.';
+      settleUnlock(Boolean(res?.ok));
     };
     document.getElementById('btnVaultLock').onclick = async () => {
       const res = await app().ipc.invoke('pm:vault:lock');
       out.textContent = JSON.stringify(res, null, 2);
       document.getElementById('vaultPasswordInput').value = '';
       await refreshStatus();
+      settleUnlock(false);
     };
     document.getElementById('btnVaultSet').onclick = async () => {
       const key = document.getElementById('vaultKeyInput').value.trim();

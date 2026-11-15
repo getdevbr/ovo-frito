@@ -16,6 +16,23 @@ describe('serializer-ovo', () => {
     assert.equal(parsed.method, 'POST');
   });
 
+  it('keeps {{vault.*}} references literal in serialized output', () => {
+    const req = {
+      id: 'r2',
+      name: 'VaultReq',
+      method: 'GET',
+      url: 'https://api.example.com/{{vault.api_token}}',
+      headers: [{ key: 'Authorization', value: 'Bearer {{vault.api_token}}', enabled: true }],
+      body: { mode: 'raw', raw: '{"k":"{{vault.deep.key-1}}"}' }
+    };
+    const out = ovo.serializeRequest(req);
+    assert.ok(out.includes('{{vault.api_token}}'));
+    assert.ok(out.includes('{{vault.deep.key-1}}'));
+    const parsed = ovo.parseRequest(out);
+    assert.equal(parsed.url, 'https://api.example.com/{{vault.api_token}}');
+    assert.equal(parsed.headers[0].value, 'Bearer {{vault.api_token}}');
+  });
+
   it('strips secret variable values in collection meta', () => {
     const out = ovo.serializeCollectionMeta({
       id: 'c1',

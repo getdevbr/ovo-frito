@@ -81,7 +81,8 @@ function createStorage({ dataDir } = {}) {
     history: path.join(resolvedDataDir, 'history.json'),
     settings: path.join(resolvedDataDir, 'settings.json'),
     sessions: path.join(resolvedDataDir, 'sessions.json'),
-    cookies: path.join(resolvedDataDir, 'cookies.json')
+    cookies: path.join(resolvedDataDir, 'cookies.json'),
+    trash: path.join(resolvedDataDir, 'trash.json')
   };
 
   function ensurePortableDataDir() {
@@ -103,7 +104,8 @@ function createStorage({ dataDir } = {}) {
         activeTabId: null,
         responseCache: {}
       },
-      cookies: []
+      cookies: [],
+      trash: []
     };
 
     for (const [key, filePath] of Object.entries(files)) {

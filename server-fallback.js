@@ -15,7 +15,7 @@ const DATA_DIR = process.env.CDO_DATA_DIR
   : path.join(__dirname, 'data');
 const RENDERER_DIR = path.join(__dirname, 'renderer');
 
-const { storage, httpEngine, vault, dbEngine } = createAppContext({ dataDir: DATA_DIR });
+const { storage, httpEngine, vault, dbEngine, oauthTokenManager, gitSync } = createAppContext({ dataDir: DATA_DIR });
 
 storage.ensurePortableDataDir();
 
@@ -102,7 +102,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const { channel, payload } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
         const result = await dispatchWebIpc(
-          { storage, httpEngine, vault, dbEngine, dataDir: DATA_DIR },
+          { storage, httpEngine, vault, dbEngine, oauthTokenManager, gitSync, dataDir: DATA_DIR },
           channel,
           payload
         );

@@ -9,7 +9,7 @@ const { loadAllStores } = require('./storage');
  * para o caller responder UNSUPPORTED_IN_WEB_MODE.
  */
 async function dispatchWebIpc(ctx, channel, payload) {
-  const { storage, httpEngine, vault, dbEngine } = ctx;
+  const { storage, httpEngine, vault, dbEngine, oauthTokenManager, gitSync } = ctx;
 
   if (channel === 'pm:storage:loadAll') {
     return loadAllStores(storage, ctx.dataDir);
@@ -56,6 +56,41 @@ async function dispatchWebIpc(ctx, channel, payload) {
   }
   if (channel === 'pm:vault:list') {
     return vault.listKeys();
+  }
+  if (channel === 'pm:oauth:token:fetch') {
+    if (!oauthTokenManager) return { ok: false, error: { code: 'UNSUPPORTED', message: 'Token Manager indisponível' } };
+    const res = await oauthTokenManager.getToken(payload || {});
+    if (!res || res.ok !== true) {
+      return { ok: false, error: res?.error || { code: 'OAUTH_TOKEN_ERROR', message: 'Falha ao obter token' } };
+    }
+    return { ok: true, accessToken: res.accessToken, expiresAt: res.expiresAt, tokenType: res.tokenType };
+  }
+  if (channel === 'pm:oauth:token:status') {
+    if (!oauthTokenManager) return { ok: true, cached: false, expiresAt: null, hasRefreshToken: false };
+    return oauthTokenManager.status(payload || {});
+  }
+  if (channel === 'pm:oauth:token:clear') {
+    if (!oauthTokenManager) return { ok: false, error: 'Token Manager indisponível' };
+    const key = payload?.cacheKey || (payload && typeof payload === 'object' ? oauthTokenManager.cacheKeyFor(payload) : null);
+    return oauthTokenManager.clear(key || undefined);
+  }
+  if (channel.startsWith('pm:git:') && gitSync) {
+    const p = payload || {};
+    const repoId = p.repoId || p.id;
+    switch (channel) {
+      case 'pm:git:detect': return gitSync.detect();
+      case 'pm:git:testConnection': return gitSync.testConnection(p);
+      case 'pm:git:connect': return gitSync.connect(p);
+      case 'pm:git:list': return { ok: true, repos: gitSync.listRepos() };
+      case 'pm:git:status': return gitSync.status(repoId);
+      case 'pm:git:pull': return gitSync.pull(repoId);
+      case 'pm:git:push': return gitSync.push(repoId);
+      case 'pm:git:sync': return gitSync.sync(repoId, { commitMessage: p.commitMessage });
+      case 'pm:git:resolveConflict': return gitSync.resolveConflict(repoId, { strategy: p.strategy });
+      case 'pm:git:disconnect': return gitSync.disconnect(repoId, { deleteLocalClone: Boolean(p.deleteLocalClone) });
+      case 'pm:git:setCredentials': return gitSync.setCredentials(repoId, { username: p.username, password: p.password });
+      case 'pm:git:clearCredentials': return gitSync.clearCredentials(repoId);
+    }
   }
   return null;
 }

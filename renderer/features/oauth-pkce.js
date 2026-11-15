@@ -12,9 +12,14 @@
 
     function syncVisibility(tab) {
       const auth = tab?.auth || {};
-      const isPkce = (auth.grantType || grantType.value) === 'authorization_code';
+      const grant = auth.grantType || grantType.value;
+      const isPkce = grant === 'authorization_code';
       pkceFields?.classList.toggle('hidden', !isPkce);
       if (pkceFields) pkceFields.style.display = isPkce ? '' : 'none';
+      const pwFields = document.getElementById('oauthPasswordFields');
+      const isPassword = grant === 'password';
+      pwFields?.classList.toggle('hidden', !isPassword);
+      if (pwFields) pwFields.style.display = isPassword ? '' : 'none';
     }
 
     function fillFromTab(tab) {
@@ -65,6 +70,7 @@
         if (statusEl()) statusEl().textContent = 'Access Token PKCE obtido com sucesso!';
         a.saveSessionState?.();
         a.renderAll?.();
+        a.updateOAuthExpiryBadge?.(tab);
       } else {
         if (statusEl()) statusEl().textContent = `Falha PKCE: ${res?.error?.message || res?.error || 'erro desconhecido'}`;
       }

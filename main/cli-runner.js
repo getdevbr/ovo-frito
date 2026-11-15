@@ -6,6 +6,8 @@ const os = require('node:os');
 const { createStorage } = require('./storage');
 const { createCookieJar } = require('./cookie-jar');
 const { createHttpEngine } = require('./http-engine');
+const { createVault } = require('./vault');
+const { createOAuthTokenManager } = require('./oauth-token-manager');
 const { createDbEngine } = require('./db-engine');
 const { runUserScriptAsync } = require('./script-sandbox');
 const ovoSerializer = require('../renderer/lib/serializers/ovo');
@@ -99,12 +101,21 @@ function loadRequests(targetPath) {
   return { requests, collection };
 }
 
-function createCliRunner({ dataDir, variables = {}, database = null, dbEngine: externalDbEngine = null, timeoutMs = 30000 } = {}) {
+function createCliRunner({ dataDir, variables = {}, database = null, dbEngine: externalDbEngine = null, timeoutMs = 30000, vaultPassword = null } = {}) {
   const resolvedDataDir = dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'ovo-frito-cli-'));
   const storage = createStorage({ dataDir: resolvedDataDir });
   storage.ensurePortableDataDir();
   const cookieJar = createCookieJar(storage);
-  const httpEngine = createHttpEngine({ storage, cookieJar });
+  const vault = createVault({ storage });
+  if (vaultPassword) {
+    const unlockRes = vault.unlock(vaultPassword);
+    if (!unlockRes.ok) {
+      throw new Error(`Falha ao desbloquear o cofre: ${unlockRes.error || 'master password incorreta'}`);
+    }
+  }
+  const httpEngine = createHttpEngine({ storage, cookieJar, vault });
+  const oauthTokenManager = createOAuthTokenManager({ httpEngine, vault });
+  httpEngine.setOAuthTokenManager(oauthTokenManager);
   const dbEngine = externalDbEngine || createDbEngine({ dataDir: resolvedDataDir });
 
   const responseCache = new Map();
@@ -183,6 +194,7 @@ function createCliRunner({ dataDir, variables = {}, database = null, dbEngine: e
         keyName: interpolate(item.auth?.keyName || '', vars),
         keyValue: interpolate(item.auth?.keyValue || '', vars),
         addTo: item.auth?.addTo || 'header',
+        autoRefresh: item.auth?.autoRefresh === true,
         grantType: item.auth?.grantType || 'client_credentials',
         tokenUrl: interpolate(item.auth?.tokenUrl || '', vars),
         clientId: interpolate(item.auth?.clientId || '', vars),
@@ -474,7 +486,9 @@ function createCliRunner({ dataDir, variables = {}, database = null, dbEngine: e
     runRequests,
     loadRequests,
     interpolate,
-    storage
+    storage,
+    vault,
+    oauthTokenManager
   };
 }
 

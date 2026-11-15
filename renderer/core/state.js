@@ -65,7 +65,8 @@ const state = {
   sidebarFilter: '',
   renamingCollectionId: null,
   renamingRequestId: null,
-  collapsedCollections: {}
+  collapsedCollections: {},
+  trash: []
 };
 
 
@@ -197,6 +198,16 @@ function debounce(fn, ms) {
 }
 
 if (typeof window !== 'undefined') {
+  const markCleanShutdown = () => {
+    try {
+      state.sessions.cleanShutdown = true;
+      const ser = window.CDO?.sessionSerializer?.serializeSession;
+      const disk = ser ? ser(state.sessions).data : { ...state.sessions, responseCache: {} };
+      IPC.invoke('pm:storage:save', { key: 'sessions', data: disk }).catch(() => {});
+    } catch {}
+  };
+  window.addEventListener('pagehide', markCleanShutdown);
+  window.addEventListener('beforeunload', markCleanShutdown);
   window.addEventListener('pagehide', () => {
     for (const key of pendingPersist.keys()) {
       IPC.invoke('pm:storage:save', { key, data: state[key] }).catch(() => {});
@@ -206,6 +217,18 @@ if (typeof window !== 'undefined') {
 
 
 async function saveSessionState() {
+  // U-06: captura estado de UI (aba de editor, aba de resposta, rolagem)
+  try {
+    const reqTab = document.querySelector('[data-req-tab].active')?.dataset?.reqTab || null;
+    const resTab = document.querySelector('[data-res-tab].active')?.dataset?.resTab || null;
+    state.sessions.ui = {
+      reqTab,
+      resTab,
+      bodyScroll: document.getElementById('bodyRawInput')?.scrollTop || 0,
+      responseScroll: document.getElementById('responseBodyPre')?.scrollTop || 0
+    };
+  } catch {}
+
   state.sessions.tabs = state.tabs.map((t) => ({
     id: t.id,
     collectionId: t.collectionId || null,
@@ -229,15 +252,21 @@ async function saveSessionState() {
     testResults: t.testResults
   }));
   state.sessions.activeTabId = state.activeTabId;
+  state.sessions.cleanShutdown = false;
   try {
+    // U-06: disco e backup localStorage recebem apenas a versão sanitizada (sem segredos)
+    const ser = window.CDO?.sessionSerializer?.serializeSession;
+    const disk = ser
+      ? ser(state.sessions).data
+      : { ...state.sessions, responseCache: {} };
     const slimSessions = {
-      ...state.sessions,
-      tabs: (state.sessions.tabs || []).map(({ response, history, testResults, ...rest }) => rest),
+      ...disk,
+      tabs: (disk.tabs || []).map(({ response, history, testResults, ...rest }) => rest),
       responseCache: {}
     };
     localStorage.setItem('ovofrito_sessions_backup', JSON.stringify(slimSessions));
+    await IPC.invoke('pm:storage:save', { key: 'sessions', data: disk });
   } catch {}
-  await persistStore('sessions');
 }
 
 

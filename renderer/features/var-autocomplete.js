@@ -21,10 +21,35 @@
       el.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    function openForField(field) {
+    function vaultContext(field) {
+      const pos = typeof field.selectionStart === 'number' ? field.selectionStart : field.value.length;
+      const before = field.value.slice(0, pos);
+      const open = before.lastIndexOf('{{');
+      if (open === -1) return null;
+      const typed = before.slice(open + 2);
+      if (typed.includes('}}')) return null;
+      const trimmed = typed.trim();
+      return trimmed.startsWith('vault.') ? { open, typed: trimmed } : null;
+    }
+
+    async function openForField(field) {
       activeField = field;
-      const vars = window.CDO?.app?.state ? getAvailableVarsSafe() : [];
-      renderList(vars, '');
+      const ctx = vaultContext(field);
+      if (ctx) {
+        let keys = [];
+        try {
+          const res = await window.CDO?.app?.ipc?.invoke('pm:vault:list');
+          if (res?.ok && Array.isArray(res.keys)) keys = res.keys;
+        } catch {}
+        const term = ctx.typed.slice('vault.'.length).toLowerCase();
+        const vars = keys
+          .filter((k) => !term || String(k).toLowerCase().includes(term))
+          .map((k) => ({ key: `vault.${k}`, value: '••••••', scope: 'Cofre' }));
+        renderList(vars, '', ctx);
+      } else {
+        const vars = window.CDO?.app?.state ? getAvailableVarsSafe() : [];
+        renderList(vars, '');
+      }
 
       const rect = field.getBoundingClientRect();
       pop.style.position = 'fixed';
@@ -37,6 +62,16 @@
     function getAvailableVarsSafe() {
       const app = window.CDO?.app;
       if (!app) return [];
+      // U-14: usa a lista completa (Env/Profile, Collection, Dinâmicas) com escopo e dica de valor.
+      if (typeof getAllAvailableVariables === 'function') {
+        try {
+          return getAllAvailableVariables(app.getActiveTab?.()).map((v) => ({
+            key: v.key,
+            value: v.secret ? '••••••' : String(v.value ?? ''),
+            scope: v.scope || 'Variável'
+          }));
+        } catch {}
+      }
       const env = app.getActiveEnvironment?.();
       const list = [];
       for (const v of env?.variables || []) {
@@ -50,7 +85,7 @@
       return list;
     }
 
-    function renderList(vars, filterTerm) {
+    function renderList(vars, filterTerm, ctx = null) {
       const term = String(filterTerm || '').toLowerCase();
       const filtered = term
         ? vars.filter((v) => v.key.toLowerCase().includes(term) || v.value.toLowerCase().includes(term))
@@ -60,7 +95,7 @@
       if (filtered.length === 0) {
         const empty = document.createElement('div');
         empty.className = 'empty-hint';
-        empty.textContent = 'Nenhuma variável encontrada.';
+        empty.textContent = ctx ? 'Cofre bloqueado ou sem chaves. Desbloqueie o cofre para usar {{vault.*}}.' : 'Nenhuma variável encontrada.';
         pop.appendChild(empty);
         return;
       }
@@ -82,7 +117,18 @@
 
         btn.append(left, right);
         btn.addEventListener('click', () => {
-          if (activeField) insertAtCursor(activeField, `{{${v.key}}}`);
+          if (activeField && ctx) {
+            const pos = typeof activeField.selectionStart === 'number' ? activeField.selectionStart : activeField.value.length;
+            const before = activeField.value.slice(0, ctx.open);
+            const after = activeField.value.slice(pos);
+            activeField.value = before + `{{${v.key}}}` + after;
+            const newPos = before.length + `{{${v.key}}}`.length;
+            if (typeof activeField.setSelectionRange === 'function') activeField.setSelectionRange(newPos, newPos);
+            activeField.focus();
+            activeField.dispatchEvent(new Event('input', { bubbles: true }));
+          } else if (activeField) {
+            insertAtCursor(activeField, `{{${v.key}}}`);
+          }
           pop.classList.add('hidden');
         });
         pop.appendChild(btn);

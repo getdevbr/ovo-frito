@@ -17,6 +17,8 @@ Opções:
   --stop-on-failure      Para na primeira falha
   --timeout <ms>         Timeout por requisição (padrão: 30000)
   --data-dir <path>      Diretório de dados temporário do runner
+  --vault-password-env <VAR>  Nome da variável de ambiente com a master password do cofre
+                               (necessário para requests com {{vault.*}}; a senha nunca vai na linha de comando)
 `;
 }
 
@@ -40,6 +42,8 @@ function parseArgs(argv) {
       args.timeout = Number(argv[++i]) || 30000;
     } else if (a === '--data-dir') {
       args.dataDir = argv[++i];
+    } else if (a === '--vault-password-env') {
+      args.vaultPasswordEnv = argv[++i];
     } else if (a === '--help' || a === '-h') {
       args.help = true;
     } else {
@@ -74,9 +78,26 @@ async function main() {
     process.exit(1);
   }
 
+  let vaultPassword = null;
+  if (args.vaultPasswordEnv) {
+    vaultPassword = process.env[args.vaultPasswordEnv];
+    if (!vaultPassword) {
+      process.stderr.write(`Variável de ambiente não definida ou vazia: ${args.vaultPasswordEnv}\n`);
+      process.exit(1);
+    }
+  }
+
   const variables = { ...readEnvFile(args.envFile), ...(args.var || {}) };
-  const runner = createCliRunner({ dataDir: args.dataDir, variables, timeoutMs: args.timeout });
+  const runner = createCliRunner({ dataDir: args.dataDir, variables, timeoutMs: args.timeout, vaultPassword });
   const results = await runner.runFile(target, { stopOnFailure: Boolean(args.stopOnFailure) });
+
+  const vaultLocked = results.filter((r) => r.error && (r.error.code === 'VAULT_LOCKED' || r.error.code === 'VAULT_KEY_NOT_FOUND'));
+  if (vaultLocked.length > 0) {
+    process.stderr.write(
+      `${vaultLocked.length} requisição(ões) usam {{vault.*}} mas o cofre está bloqueado ou a chave não existe. ` +
+      `Use --vault-password-env <VAR> com a master password do cofre.\n`
+    );
+  }
 
   const report = args.report === 'junit' ? toJUnit(results, path.basename(target)) : JSON.stringify({ target, results }, null, 2);
   if (args.output) {

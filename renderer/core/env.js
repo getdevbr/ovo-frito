@@ -230,6 +230,17 @@ function isActiveProfileConfirmDestructive(env) {
 }
 
 
+function isActiveProfileProduction(env) {
+  if (!env) return false;
+  ensureEnvProfileStructure(env);
+  if (env.profile) {
+    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
+    if (cp) return Boolean(cp.isProduction);
+  }
+  return Boolean(env.isProduction);
+}
+
+
 function getAllAvailableVariables(tab = getActiveTab()) {
   const list = [];
   const seen = new Set();
@@ -332,6 +343,7 @@ function interpolateVariables(str) {
 
   return str.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (match, varName) => {
     const k = varName.trim();
+    if (k.startsWith('vault.')) return match;
     if (k === '$guid' || k === '$uuid') return generateUuidV4();
     if (k === '$timestamp') return String(Math.floor(Date.now() / 1000));
     if (k === '$isoTimestamp' || k === '$isoDate') return new Date().toISOString();
@@ -453,6 +465,7 @@ function getOrInitActiveEnvForScripts() {
     interpolateVariables,
     getOrInitActiveEnvForScripts,
     isActiveProfileConfirmDestructive,
+    isActiveProfileProduction,
     isVariableDefined
   };
   if (typeof module === 'object' && module.exports) {

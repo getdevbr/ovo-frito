@@ -1,7 +1,7 @@
 'use strict';
 
 const path = require('node:path');
-const { BrowserWindow, shell } = require('electron');
+const { BrowserWindow, shell, Menu } = require('electron');
 
 const RENDERER_DIR = path.join(__dirname, '..', 'renderer');
 
@@ -22,6 +22,9 @@ function createMainWindow() {
       sandbox: true
     }
   });
+
+  // Menu mínimo: mantém Edit (clipboard) e libera Ctrl+W para fechar aba no renderer.
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ role: 'editMenu' }]));
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, url) => {

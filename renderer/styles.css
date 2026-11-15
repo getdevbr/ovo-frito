@@ -1940,3 +1940,26 @@ body {
   text-decoration: underline wavy rgba(248, 113, 113, 0.6);
   text-underline-offset: 2px;
 }
+
+/* U-11: demais estados de {{var}} */
+.var-secret {
+  color: #9ca3af;
+}
+
+.var-dynamic {
+  color: #60a5fa;
+}
+
+.var-chain {
+  color: #c084fc;
+}
+
+.var-vault {
+  color: #fbbf24;
+}
+
+/* Sublinhado de variáveis não resolvidas em inputs de tabelas key/value */
+.kv-input.var-missing-input {
+  text-decoration: underline wavy rgba(248, 113, 113, 0.7);
+  text-underline-offset: 3px;
+}

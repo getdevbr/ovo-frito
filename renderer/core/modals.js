@@ -44,6 +44,10 @@ function syncEnvModalProfileControls(env) {
   if (chkDestructive) {
     chkDestructive.checked = isActiveProfileConfirmDestructive(env);
   }
+  const chkProd = document.getElementById('envIsProdCheckbox');
+  if (chkProd) {
+    chkProd.checked = isActiveProfileProduction(env);
+  }
 
   const activeContextLabel = meta.label ? `Profile "${meta.label}"` : `Environment "${env.name}" (Sem Profile)`;
 
@@ -382,7 +386,10 @@ function getCommandPaletteActions(query = '') {
   const q = query.toLowerCase().trim();
   const actions = [];
 
-  // 1. Todas as requisições de todas as Collections
+  // 1. Todas as requisições de todas as Collections (favoritas e recentes primeiro — U-05)
+  const favIds = new Set(state.settings?.favorites || []);
+  const recIds = new Set(state.settings?.recents || []);
+  const rankOf = (it) => (it.id && favIds.has(it.id) ? 0 : it.id && recIds.has(it.id) ? 1 : 2);
   state.collections.forEach((col) => {
     (col.items || []).forEach((it) => {
       const folderPrefix = it.folder ? `${it.folder} / ` : '';
@@ -390,6 +397,7 @@ function getCommandPaletteActions(query = '') {
         category: `Collection: ${col.name}`,
         label: `[${it.method || 'GET'}] ${folderPrefix}${it.name || it.url}`,
         sub: it.url || '',
+        _rank: rankOf(it),
         run: () => openRequestInTab(it, col.id)
       });
     });
@@ -425,54 +433,27 @@ function getCommandPaletteActions(query = '') {
     });
   });
 
-  // 3. Ações rápidas de Rede, Layout e Exportação .ovo
-  actions.push(
-    {
-      category: 'Rede / Segurança',
-      label: '🛡️ Configurar Proxy HTTP/HTTPS e Certificado SSL/TLS',
-      sub: 'Abrir modal de Rede, Proxy e rejectUnauthorized',
-      run: () => openNetworkModal()
-    },
-    {
-      category: 'Exportação Nativa',
-      label: '🥚 Exportar Requisição Ativa como arquivo .ovo',
-      sub: 'Formato nativo Ovo Frito',
-      run: () => exportRequestAsOvo(getActiveTab())
-    },
-    {
-      category: 'Disposição das Janelas',
-      label: '⬌ Disposição Lado a Lado (Request à Esquerda / Response à Direita)',
-      sub: 'Layout Horizontal',
-      run: () => {
-        state.settings.layout.splitDirection = 'horizontal';
-        applyLayoutState(state.settings.layout);
-        saveLayoutPrefs(state.settings.layout);
-      }
-    },
-    {
-      category: 'Disposição das Janelas',
-      label: '⬍ Disposição Empilhada (Request em Cima / Response em Baixo)',
-      sub: 'Layout Vertical',
-      run: () => {
-        state.settings.layout.splitDirection = 'vertical';
-        applyLayoutState(state.settings.layout);
-        saveLayoutPrefs(state.settings.layout);
-      }
-    },
-    {
-      category: 'Aparência',
-      label: '☀ / 🌙 Alternar Tema Dark / Light',
-      sub: 'Trocar esquema de cores',
-      run: async () => {
-        state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
-        applyTheme(state.settings.theme);
-        await persistStore('settings');
-      }
-    }
-  );
+  // 3. Comandos registrados no registry central (U-00)
+  const registry = window.CDO?.commands;
+  if (registry && typeof registry.list === 'function') {
+    registry.list().forEach((cmd) => {
+      actions.push({
+        category: cmd.category,
+        label: cmd.title,
+        sub: cmd.sub || '',
+        run: () => cmd.run()
+      });
+    });
+  }
 
-  if (!q) return actions;
-  return actions.filter(
+  // Ordena: favoritos → recentes → demais (estável, preserva ordem interna)
+  const ordered = actions
+    .map((a, i) => ({ a, i, r: a._rank ?? 2 }))
+    .sort((x, y) => (x.r - y.r) || (x.i - y.i))
+    .map(({ a }) => { delete a._rank; return a; });
+
+  if (!q) return ordered;
+  return ordered.filter(
     (a) =>
       a.label.toLowerCase().includes(q) ||
       a.category.toLowerCase().includes(q) ||
@@ -772,6 +753,64 @@ function initCompareProfileModal() {
   });
   document.getElementById('btnRunCompareAB')?.addEventListener('click', runCompareAB);
 }
+
+// Registro central de comandos (U-00): fonte única para palette, atalhos e onboarding.
+(function registerPaletteCommands() {
+  if (typeof window === 'undefined') return;
+  const reg = window.CDO?.commands;
+  if (!reg || typeof reg.register !== 'function') return;
+  const safe = (fn) => () => { try { return fn(); } catch (e) { console.error(e); } };
+  const defs = [
+    {
+      id: 'action.proxyConfig',
+      title: '🛡️ Configurar Proxy HTTP/HTTPS e Certificado SSL/TLS',
+      category: 'Rede / Segurança',
+      sub: 'Abrir modal de Rede, Proxy e rejectUnauthorized',
+      run: safe(() => openNetworkModal())
+    },
+    {
+      id: 'action.exportOvo',
+      title: '🥚 Exportar Requisição Ativa como arquivo .ovo',
+      category: 'Exportação Nativa',
+      sub: 'Formato nativo Ovo Frito',
+      run: safe(() => exportRequestAsOvo(getActiveTab()))
+    },
+    {
+      id: 'layout.horizontal',
+      title: '⬌ Disposição Lado a Lado (Request à Esquerda / Response à Direita)',
+      category: 'Disposição das Janelas',
+      sub: 'Layout Horizontal',
+      run: safe(() => {
+        state.settings.layout.splitDirection = 'horizontal';
+        applyLayoutState(state.settings.layout);
+        saveLayoutPrefs(state.settings.layout);
+      })
+    },
+    {
+      id: 'layout.vertical',
+      title: '⬍ Disposição Empilhada (Request em Cima / Response em Baixo)',
+      category: 'Disposição das Janelas',
+      sub: 'Layout Vertical',
+      run: safe(() => {
+        state.settings.layout.splitDirection = 'vertical';
+        applyLayoutState(state.settings.layout);
+        saveLayoutPrefs(state.settings.layout);
+      })
+    },
+    {
+      id: 'theme.toggle',
+      title: '☀ / 🌙 Alternar Tema Dark / Light',
+      category: 'Aparência',
+      sub: 'Trocar esquema de cores',
+      run: safe(async () => {
+        state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
+        applyTheme(state.settings.theme);
+        await persistStore('settings');
+      })
+    }
+  ];
+  defs.forEach((d) => { try { reg.register(d); } catch (e) { console.warn('command register:', e.message); } });
+})();
 
 (function (root) {
   const api = {

@@ -32,6 +32,7 @@
     return str.replace(/\{\{([^}]+)\}\}/g, (match, rawKey) => {
       const key = String(rawKey).trim();
       if (UNSAFE_KEYS.has(key)) return match;
+      if (key.startsWith('vault.')) return match;
       if (key.includes('.')) {
         const resolved = getByPath(variables, key);
         if (resolved !== undefined) return String(resolved);

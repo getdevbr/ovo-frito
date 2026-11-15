@@ -27,6 +27,9 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'pm:capture:list',
   'pm:oauth:pkce:start',
   'pm:oauth:pkce:cancel',
+  'pm:oauth:token:fetch',
+  'pm:oauth:token:status',
+  'pm:oauth:token:clear',
   'pm:vault:unlock',
   'pm:vault:lock',
   'pm:vault:status',
@@ -35,7 +38,19 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'pm:vault:delete',
   'pm:vault:list',
   'pm:db:query',
-  'pm:db:testConnection'
+  'pm:db:testConnection',
+  'pm:git:detect',
+  'pm:git:testConnection',
+  'pm:git:connect',
+  'pm:git:list',
+  'pm:git:status',
+  'pm:git:pull',
+  'pm:git:push',
+  'pm:git:sync',
+  'pm:git:resolveConflict',
+  'pm:git:disconnect',
+  'pm:git:setCredentials',
+  'pm:git:clearCredentials'
 ]);
 
 const ALLOWED_SEND_CHANNELS = new Set([]);
@@ -49,7 +64,11 @@ const ALLOWED_SUBSCRIBE_CHANNELS = new Set([
   'pm:capture:entry',
   'pm:proxy:captured',
   'pm:load:progress',
-  'pm:load:done'
+  'pm:load:done',
+  'pm:oauth:token:refreshed',
+  'pm:git:progress',
+  'pm:git:conflict',
+  'pm:git:synced'
 ]);
 
 function assertAllowed(set, channel) {

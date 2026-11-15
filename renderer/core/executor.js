@@ -555,6 +555,7 @@ async function executeTabRequestObject(tab) {
     keyName: interpolateVariables(effectiveAuth?.keyName || ''),
     keyValue: interpolateVariables(effectiveAuth?.keyValue || ''),
     addTo: effectiveAuth?.addTo || 'header',
+    autoRefresh: effectiveAuth?.autoRefresh === true,
     grantType: effectiveAuth?.grantType || 'client_credentials',
     tokenUrl: interpolateVariables(effectiveAuth?.tokenUrl || ''),
     clientId: interpolateVariables(effectiveAuth?.clientId || ''),
@@ -634,6 +635,30 @@ async function executeTabRequestObject(tab) {
     resolvedBody: effectiveBodyMode !== 'none' ? resolvedBody : undefined
   };
 
+  // U-11: variáveis {{...}} não resolvidas — avisa (ou bloqueia se configurado). Só na aba ativa da UI.
+  const isActiveUiTab = tab === getActiveTab();
+  const unresolved = isActiveUiTab && window.CDO?.varResolution?.findUnresolved
+    ? window.CDO.varResolution.findUnresolved(tab, (k) => { try { return isVariableDefined(k); } catch { return false; } })
+    : [];
+  if (unresolved.length > 0) {
+    const keys = [...new Set(unresolved.map((u) => u.key))];
+    const msg = `Variáveis não resolvidas: ${keys.join(', ')}`;
+    if (state.settings?.blockUnresolvedVars) {
+      const statusMsg = document.getElementById('statusMessage');
+      if (statusMsg) statusMsg.textContent = `Envio bloqueado — ${msg}`;
+      window.CDO?.toast?.show?.({ message: msg, type: 'warning', action: { label: 'Revisar', run: () => document.getElementById('reqUrl')?.focus() } });
+      tab.loading = false;
+      renderAll();
+      return null;
+    }
+    window.CDO?.toast?.show?.({
+      message: `${msg} — serão enviadas literalmente`,
+      type: 'warning',
+      durationMs: 8000,
+      action: { label: 'Revisar', run: () => document.getElementById('reqUrl')?.focus() }
+    });
+  }
+
   const requestSpec = {
     method: tab.method,
     url: resolvedUrl,
@@ -644,7 +669,20 @@ async function executeTabRequestObject(tab) {
     network: resolvedNetwork
   };
   emitAppHook('request:beforeSend', { tab, spec: requestSpec });
-  const response = await IPC.invoke('pm:runtime:request', requestSpec);
+  let response = await IPC.invoke('pm:runtime:request', requestSpec);
+
+  if (
+    response &&
+    response.ok === false &&
+    response.error &&
+    response.error.code === 'VAULT_LOCKED' &&
+    typeof window.CDO?.vault?.requestUnlock === 'function'
+  ) {
+    const unlocked = await window.CDO.vault.requestUnlock().catch(() => false);
+    if (unlocked) {
+      response = await IPC.invoke('pm:runtime:request', requestSpec);
+    }
+  }
 
   tab.response = response;
 
@@ -719,7 +757,19 @@ async function sendActiveRequest() {
 
   const method = (tab.method || 'GET').toUpperCase();
   const env = getActiveEnvironment();
-  if (isActiveProfileConfirmDestructive(env) && ['DELETE', 'PUT', 'PATCH', 'POST'].includes(method)) {
+  if (isActiveProfileProduction(env)) {
+    const meta = getEnvProfileMeta(env);
+    const ctxName = meta.label ? `Profile "${meta.label}" (${env.name})` : `Environment "${env.name}"`;
+    const resolvedUrl = interpolateVariables(tab.url || '');
+    const msg = `🚨 PRODUÇÃO ATIVA em ${ctxName}\n\nDeseja realmente enviar ${method} para:\n${resolvedUrl} ?`;
+    const confirmed = window.CDO?.dialog?.confirm
+      ? await window.CDO.dialog.confirm({ title: 'Enviar em Produção', message: msg, confirmLabel: 'Enviar em PROD', danger: true })
+      : window.confirm(msg);
+    if (!confirmed) {
+      document.getElementById('statusMessage').textContent = `Envio de ${method} cancelado — ambiente de Produção.`;
+      return;
+    }
+  } else if (isActiveProfileConfirmDestructive(env) && ['DELETE', 'PUT', 'PATCH', 'POST'].includes(method)) {
     const meta = getEnvProfileMeta(env);
     const ctxName = meta.label ? `Profile "${meta.label}" (${env.name})` : `Environment "${env.name}"`;
     const resolvedUrl = interpolateVariables(tab.url || '');
@@ -743,7 +793,7 @@ async function sendActiveRequest() {
 
   statusMsg.textContent = response.ok
     ? `Concluído: ${response.status} ${response.statusText} (${response.timeMs} ms) — Salvo no histórico individual da requisição`
-    : `Erro: ${response.error || response.statusText}`;
+    : `Erro: ${(response.error && (response.error.message || response.error)) || response.statusText}`;
 
   renderAll();
 }

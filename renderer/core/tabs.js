@@ -13,6 +13,7 @@ function createBlankTab(overrides = {}) {
     keyName: '',
     keyValue: '',
     addTo: 'header',
+    autoRefresh: true,
     grantType: 'client_credentials',
     tokenUrl: '',
     clientId: '',
@@ -262,11 +263,14 @@ function updateUrlInterpolatedPreview(tab = getActiveTab()) {
 
   bar.classList.remove('hidden');
   if (hasVars) {
-    const resolved = interpolateVariables(rawUrl);
+    const resolvedRaw = interpolateVariables(rawUrl);
+    const hasVaultRefs = /\{\{\s*vault\.[^}]+\}\}/.test(resolvedRaw);
+    const resolved = resolvedRaw.replace(/\{\{\s*vault\.[^}]+\}\}/g, '••••');
     const unresolvedMatch = resolved.match(/\{\{[^}]+\}\}/);
+    const vaultBadge = hasVaultRefs ? ' <span class="badge">vault</span>' : '';
     txt.innerHTML = unresolvedMatch
-      ? `🔗 Preview URL: <span style="color:var(--text-primary);">${escapeHtml(resolved)}</span> <span style="color:#ef4444; margin-left:6px;">(⚠️ Variável ${escapeHtml(unresolvedMatch[0])} não definida no Environment/Collection)</span>`
-      : `🔗 Preview URL: <span style="color:#10b981;">${escapeHtml(resolved)}</span>`;
+      ? `🔗 Preview URL: <span style="color:var(--text-primary);">${escapeHtml(resolved)}</span>${vaultBadge} <span style="color:#ef4444; margin-left:6px;">(⚠️ Variável ${escapeHtml(unresolvedMatch[0])} não definida no Environment/Collection)</span>`
+      : `🔗 Preview URL: <span style="color:#10b981;">${escapeHtml(resolved)}</span>${vaultBadge}`;
   } else {
     txt.textContent = `🔗 URL: ${rawUrl}`;
   }
