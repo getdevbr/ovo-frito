@@ -859,6 +859,36 @@ async function init() {
     renderActiveRequest();
   });
 
+  document.getElementById('btnAddPreDbQuery')?.addEventListener('click', () => {
+    const tab = getActiveTab();
+    if (!tab) return;
+    if (!Array.isArray(tab.preDbQueries)) tab.preDbQueries = [];
+    tab.preDbQueries.push({
+      id: uid('dbq'),
+      name: `pre_${tab.preDbQueries.length + 1}`,
+      query: 'SELECT id, name, email FROM users LIMIT 1',
+      params: '[]',
+      captures: 'rows[0].id -> seeded_id',
+      enabled: true
+    });
+    renderActiveRequest();
+  });
+
+  document.getElementById('btnAddPostDbQuery')?.addEventListener('click', () => {
+    const tab = getActiveTab();
+    if (!tab) return;
+    if (!Array.isArray(tab.postDbQueries)) tab.postDbQueries = [];
+    tab.postDbQueries.push({
+      id: uid('dbq'),
+      name: `post_${tab.postDbQueries.length + 1}`,
+      query: 'SELECT id, name, email FROM users WHERE id = $1',
+      params: '[response.body.id]',
+      captures: '',
+      enabled: true
+    });
+    renderActiveRequest();
+  });
+
   // Auth events
   document.getElementById('authType').addEventListener('change', (e) => {
     const tab = getActiveTab();
@@ -1137,6 +1167,23 @@ async function init() {
       `pm.test("Resposta JSON possui dados", () => {`,
       `  const data = pm.response.json();`,
       `  pm.expect(data).to.exist;`,
+      `});`
+    ].join('\n');
+    document.getElementById('postResponseScriptInput').value = tab.postResponseScript;
+    renderActiveBadges(tab);
+  });
+
+  document.getElementById('btnInsertSampleDbScript')?.addEventListener('click', () => {
+    const tab = getActiveTab();
+    if (!tab) return;
+    tab.postResponseScript = [
+      `pm.test("Registro persistido no banco após POST", async () => {`,
+      `  const dbResult = await pm.db.query(`,
+      `    "SELECT id, name, email FROM users WHERE id = $1",`,
+      `    [response.body.id]`,
+      `  );`,
+      `  pm.expect(dbResult.rowCount).to.equal(1);`,
+      `  pm.expect(dbResult.rows[0].name).to.equal("Carlos");`,
       `});`
     ].join('\n');
     document.getElementById('postResponseScriptInput').value = tab.postResponseScript;
@@ -1433,10 +1480,83 @@ async function init() {
     URL.revokeObjectURL(a.href);
   });
 
+  function readEnvModalDbConfigInto(env) {
+    if (!env) return;
+    ensureEnvProfileStructure(env);
+    env.database = {
+      enabled: Boolean(document.getElementById('envDbEnabledCheckbox')?.checked),
+      client: document.getElementById('envDbClientSelect')?.value || 'postgres',
+      connectionString: document.getElementById('envDbConnectionStringInput')?.value || '',
+      host: document.getElementById('envDbHostInput')?.value || '127.0.0.1',
+      port: document.getElementById('envDbPortInput')?.value || '5432',
+      database: document.getElementById('envDbDatabaseInput')?.value || '',
+      user: document.getElementById('envDbUserInput')?.value || '',
+      password: document.getElementById('envDbPasswordInput')?.value || '',
+      ssl: Boolean(document.getElementById('envDbSslCheckbox')?.checked)
+    };
+  }
+
+  [
+    'envDbEnabledCheckbox',
+    'envDbClientSelect',
+    'envDbConnectionStringInput',
+    'envDbHostInput',
+    'envDbPortInput',
+    'envDbDatabaseInput',
+    'envDbUserInput',
+    'envDbPasswordInput',
+    'envDbSslCheckbox'
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const evt = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
+    el.addEventListener(evt, () => {
+      const env = state.environments.find((e) => e.id === editingEnvId);
+      if (!env) return;
+      if (id === 'envDbClientSelect') {
+        const portEl = document.getElementById('envDbPortInput');
+        if (portEl && (portEl.value === '5432' || portEl.value === '3306' || !portEl.value)) {
+          portEl.value = el.value === 'mysql' ? '3306' : el.value === 'postgres' ? '5432' : '';
+        }
+      }
+      readEnvModalDbConfigInto(env);
+    });
+  });
+
+  document.getElementById('btnTestEnvDbConnection')?.addEventListener('click', async () => {
+    const env = state.environments.find((e) => e.id === editingEnvId);
+    if (!env) return;
+    readEnvModalDbConfigInto(env);
+    const badge = document.getElementById('envDbTestStatusBadge');
+    if (badge) {
+      badge.textContent = '⏳ Testando conexão...';
+      badge.style.color = 'var(--text-secondary)';
+    }
+    try {
+      const conn = resolveActiveDbConnection({ ...env, database: { ...env.database, enabled: true } });
+      const res = await IPC.invoke('pm:db:testConnection', { connection: conn, timeoutMs: 8000 });
+      if (badge) {
+        if (res && res.ok) {
+          badge.textContent = `✅ Conectado (${res.durationMs || 0}ms)`;
+          badge.style.color = '#4ade80';
+        } else {
+          badge.textContent = `❌ ${res?.error || 'Falha na conexão'}`;
+          badge.style.color = '#f87171';
+        }
+      }
+    } catch (err) {
+      if (badge) {
+        badge.textContent = `❌ ${err.message || err}`;
+        badge.style.color = '#f87171';
+      }
+    }
+  });
+
   document.getElementById('btnSaveEnvModal').addEventListener('click', async () => {
     const env = state.environments.find((e) => e.id === editingEnvId);
     if (env) {
       env.name = document.getElementById('envNameInput').value.trim() || 'Environment';
+      readEnvModalDbConfigInto(env);
       await persistStore('environments');
       await persistStore('settings');
     }
@@ -1602,8 +1722,12 @@ async function init() {
   });
 
   // Network Modal (Proxy, Certificado SSL/TLS, mTLS & Exportar Workspace .ovo)
-  document.getElementById('btnOpenNetworkModal')?.addEventListener('click', openNetworkModal);
-  document.getElementById('statusNetworkSummary')?.addEventListener('click', openNetworkModal);
+  document.getElementById('btnOpenNetworkModal')?.addEventListener('click', () => openNetworkModal());
+  document.getElementById('statusNetworkSummary')?.addEventListener('click', () => openNetworkModal('network'));
+
+  document.querySelectorAll('#networkModal [data-cfg-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => switchNetworkConfigTab(btn.dataset.cfgTab));
+  });
 
   document.getElementById('btnCloseNetworkModal')?.addEventListener('click', () => {
     document.getElementById('networkModal')?.classList.add('hidden');
@@ -1788,6 +1912,8 @@ async function init() {
       body: structuredClone(tab.body),
       assertions: structuredClone(tab.assertions),
       captures: structuredClone(tab.captures),
+      preDbQueries: Array.isArray(tab.preDbQueries) ? structuredClone(tab.preDbQueries) : [],
+      postDbQueries: Array.isArray(tab.postDbQueries) ? structuredClone(tab.postDbQueries) : [],
       preRequestScript: tab.preRequestScript || '',
       postResponseScript: tab.postResponseScript || '',
       history: Array.isArray(tab.history) ? structuredClone(tab.history) : []

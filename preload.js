@@ -33,7 +33,9 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'pm:vault:set',
   'pm:vault:get',
   'pm:vault:delete',
-  'pm:vault:list'
+  'pm:vault:list',
+  'pm:db:query',
+  'pm:db:testConnection'
 ]);
 
 const ALLOWED_SEND_CHANNELS = new Set([]);

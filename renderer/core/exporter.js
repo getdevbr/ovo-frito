@@ -124,6 +124,8 @@ function generateOvoContent(tab) {
       body: tab.body || { mode: 'none' },
       assertions: tab.assertions || [],
       captures: tab.captures || [],
+      preDbQueries: Array.isArray(tab.preDbQueries) ? tab.preDbQueries : [],
+      postDbQueries: Array.isArray(tab.postDbQueries) ? tab.postDbQueries : [],
       preRequestScript: tab.preRequestScript || '',
       postResponseScript: tab.postResponseScript || '',
       history: sanitizeHistoryForExport(Array.isArray(tab.history) ? tab.history : [])
@@ -197,6 +199,7 @@ function exportWorkspaceAsOvo() {
     })),
     environments: (state.environments || []).map((env) => ({
       ...env,
+      database: env.database ? { ...env.database, password: '', connectionString: isSecretLikeValue(env.database.connectionString) ? '' : env.database.connectionString } : undefined,
       variables: (Array.isArray(env.variables) ? env.variables : []).map((v) => (v?.secret ? { ...v, value: '' } : v))
     })),
     settings: {

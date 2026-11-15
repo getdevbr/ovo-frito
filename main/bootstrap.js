@@ -11,6 +11,7 @@ const { createProxyInterceptor } = require('./services/proxy-interceptor');
 const { createOAuthPkce } = require('./oauth-pkce');
 const { createVault } = require('./vault');
 const { createSyncDirs } = require('./services/sync-dirs');
+const { createDbEngine } = require('./db-engine');
 
 /**
  * Composition root compartilhado por main.js (Electron) e server-fallback.js (web).
@@ -21,6 +22,7 @@ function createAppContext({ dataDir, broadcast = () => {}, openExternal = () => 
   const storage = createStorage({ dataDir });
   const cookieJar = createCookieJar(storage);
   const httpEngine = createHttpEngine({ storage, cookieJar });
+  const dbEngine = createDbEngine({ dataDir });
   const serviceManager = new ServiceManager();
   const mockServer = createMockServer({ storage });
   const loadRunner = createLoadRunner({ httpEngine });
@@ -37,6 +39,7 @@ function createAppContext({ dataDir, broadcast = () => {}, openExternal = () => 
   serviceManager.register('capture', proxyInterceptor);
   serviceManager.register('oauth', { stop: () => oauthPkce.cancel(), status: () => oauthPkce.status() });
   serviceManager.register('vault', { stop: () => vault.lock(), status: () => vault.status() });
+  serviceManager.register('db', { stop: () => dbEngine.closeAll(), status: () => ({ ok: true }) });
 
   mockServer.on('log', (entry) => broadcast('pm:mock:log', entry));
   folderSync.on('changed', (payload) => broadcast('pm:sync:changed', payload));
@@ -48,6 +51,7 @@ function createAppContext({ dataDir, broadcast = () => {}, openExternal = () => 
     storage,
     cookieJar,
     httpEngine,
+    dbEngine,
     serviceManager,
     mockServer,
     loadRunner,

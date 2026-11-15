@@ -9,8 +9,9 @@ const sync = require('./sync');
 const capture = require('./capture');
 const oauth = require('./oauth');
 const vault = require('./vault');
+const db = require('./db');
 
-const REGISTRARS = [storage, runtime, scripts, mock, load, sync, capture, oauth, vault];
+const REGISTRARS = [storage, runtime, scripts, mock, load, sync, capture, oauth, vault, db];
 
 function registerAllIpcHandlers(ctx) {
   for (const register of REGISTRARS) {

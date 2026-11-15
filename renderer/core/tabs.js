@@ -44,6 +44,8 @@ function createBlankTab(overrides = {}) {
       ? structuredClone(overrides.assertions)
       : [{ source: 'status', operator: '==', target: '200', enabled: true }],
     captures: overrides.captures ? structuredClone(overrides.captures) : [],
+    preDbQueries: Array.isArray(overrides.preDbQueries) ? structuredClone(overrides.preDbQueries) : [],
+    postDbQueries: Array.isArray(overrides.postDbQueries) ? structuredClone(overrides.postDbQueries) : [],
     preRequestScript: overrides.preRequestScript || '',
     postResponseScript: overrides.postResponseScript || '',
     scriptConsoleLogs: Array.isArray(overrides.scriptConsoleLogs) ? structuredClone(overrides.scriptConsoleLogs) : [],

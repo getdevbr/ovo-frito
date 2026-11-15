@@ -66,6 +66,39 @@ function syncEnvModalProfileControls(env) {
       ? `Variáveis do Profile [${meta.label}] em "${env.name}" (marque 🔒 Secret para ocultar valores sensíveis)`
       : `Variáveis de "${env.name}" (marque 🔒 Secret para ocultar valores sensíveis)`;
   }
+
+  const dbCfg = env.database || {
+    enabled: false,
+    client: 'postgres',
+    connectionString: '',
+    host: '127.0.0.1',
+    port: '5432',
+    database: '',
+    user: '',
+    password: '',
+    ssl: false
+  };
+  const dbEnabledEl = document.getElementById('envDbEnabledCheckbox');
+  const dbClientEl = document.getElementById('envDbClientSelect');
+  const dbConnStrEl = document.getElementById('envDbConnectionStringInput');
+  const dbHostEl = document.getElementById('envDbHostInput');
+  const dbPortEl = document.getElementById('envDbPortInput');
+  const dbNameEl = document.getElementById('envDbDatabaseInput');
+  const dbUserEl = document.getElementById('envDbUserInput');
+  const dbPassEl = document.getElementById('envDbPasswordInput');
+  const dbSslEl = document.getElementById('envDbSslCheckbox');
+  const dbStatusBadge = document.getElementById('envDbTestStatusBadge');
+
+  if (dbEnabledEl) dbEnabledEl.checked = Boolean(dbCfg.enabled);
+  if (dbClientEl) dbClientEl.value = dbCfg.client || 'postgres';
+  if (dbConnStrEl) dbConnStrEl.value = dbCfg.connectionString || '';
+  if (dbHostEl) dbHostEl.value = dbCfg.host ?? '127.0.0.1';
+  if (dbPortEl) dbPortEl.value = dbCfg.port ?? '5432';
+  if (dbNameEl) dbNameEl.value = dbCfg.database || '';
+  if (dbUserEl) dbUserEl.value = dbCfg.user || '';
+  if (dbPassEl) dbPassEl.value = dbCfg.password || '';
+  if (dbSslEl) dbSslEl.checked = Boolean(dbCfg.ssl);
+  if (dbStatusBadge) dbStatusBadge.textContent = '';
 }
 
 
@@ -209,7 +242,22 @@ function renderNetworkStatusIndicators() {
 }
 
 
-function openNetworkModal() {
+function switchNetworkConfigTab(tabName) {
+  const modal = document.getElementById('networkModal');
+  if (!modal) return;
+  const target = tabName || 'appearance';
+  modal.querySelectorAll('[data-cfg-tab]').forEach((b) => {
+    const active = b.dataset.cfgTab === target;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  modal.querySelectorAll('.cfg-pane').forEach((p) => {
+    p.classList.toggle('active', p.id === `cfgPane-${target}`);
+  });
+}
+
+
+function openNetworkModal(tabName) {
   const net = ensureNetworkSettings();
   const chkCert = document.getElementById('netIgnoreCertErrorsCheckbox');
   const timeoutIn = document.getElementById('netTimeoutMsInput');
@@ -241,6 +289,7 @@ function openNetworkModal() {
     fieldsBox.style.opacity = chkProxy?.checked ? '1' : '0.55';
   }
 
+  switchNetworkConfigTab(tabName);
   document.getElementById('networkModal')?.classList.remove('hidden');
 }
 
@@ -731,6 +780,7 @@ function initCompareProfileModal() {
     renderCookieJarModal,
     ensureNetworkSettings,
     renderNetworkStatusIndicators,
+    switchNetworkConfigTab,
     openNetworkModal,
     syncCollectionConfigAuthFields,
     openCollectionConfigModal,

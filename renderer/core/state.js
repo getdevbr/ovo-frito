@@ -220,6 +220,8 @@ async function saveSessionState() {
     body: t.body,
     assertions: t.assertions,
     captures: t.captures,
+    preDbQueries: Array.isArray(t.preDbQueries) ? t.preDbQueries : [],
+    postDbQueries: Array.isArray(t.postDbQueries) ? t.postDbQueries : [],
     preRequestScript: t.preRequestScript || '',
     postResponseScript: t.postResponseScript || '',
     history: Array.isArray(t.history) ? t.history : [],

@@ -6,6 +6,8 @@ const os = require('node:os');
 const { createStorage } = require('./storage');
 const { createCookieJar } = require('./cookie-jar');
 const { createHttpEngine } = require('./http-engine');
+const { createDbEngine } = require('./db-engine');
+const { runUserScriptAsync } = require('./script-sandbox');
 const ovoSerializer = require('../renderer/lib/serializers/ovo');
 const { interpolateString, getByPath } = require('../renderer/lib/interpolate');
 const { GENERATOR_MAP } = require('../renderer/lib/generators-br');
@@ -29,6 +31,8 @@ function normalizeRequest(raw) {
     body: r.body || { mode: 'none' },
     assertions: Array.isArray(r.assertions) ? r.assertions : [],
     captures: Array.isArray(r.captures) ? r.captures : [],
+    preDbQueries: Array.isArray(r.preDbQueries) ? r.preDbQueries : [],
+    postDbQueries: Array.isArray(r.postDbQueries) ? r.postDbQueries : [],
     preRequestScript: r.preRequestScript || '',
     postResponseScript: r.postResponseScript || ''
   };
@@ -95,12 +99,13 @@ function loadRequests(targetPath) {
   return { requests, collection };
 }
 
-function createCliRunner({ dataDir, variables = {}, timeoutMs = 30000 } = {}) {
+function createCliRunner({ dataDir, variables = {}, database = null, dbEngine: externalDbEngine = null, timeoutMs = 30000 } = {}) {
   const resolvedDataDir = dataDir || fs.mkdtempSync(path.join(os.tmpdir(), 'ovo-frito-cli-'));
   const storage = createStorage({ dataDir: resolvedDataDir });
   storage.ensurePortableDataDir();
   const cookieJar = createCookieJar(storage);
   const httpEngine = createHttpEngine({ storage, cookieJar });
+  const dbEngine = externalDbEngine || createDbEngine({ dataDir: resolvedDataDir });
 
   const responseCache = new Map();
   let lastResponse = null;
@@ -193,7 +198,121 @@ function createCliRunner({ dataDir, variables = {}, timeoutMs = 30000 } = {}) {
     };
   }
 
-  async function runRequests(requests, { vars = {}, stopOnFailure = false } = {}) {
+  function resolveDbParamValue(rawParam, { vars = {}, response = null, parsedJson = null, dbContext = null } = {}) {
+    if (rawParam === null || rawParam === undefined) return null;
+    if (typeof rawParam === 'number' || typeof rawParam === 'boolean') return rawParam;
+    const expr = String(rawParam).trim();
+    if (!expr) return '';
+
+    if (expr.startsWith('response.body.')) {
+      const subPath = expr.slice('response.body.'.length).replace(/\[(\d+)\]/g, '.$1');
+      return getByPath(parsedJson, subPath);
+    }
+    if (expr === 'response.status') return response?.status;
+    if (expr.startsWith('json.') || expr.startsWith('header.') || expr === 'status' || expr === 'body') {
+      return resolveResponseSourceValue(response || {}, parsedJson, expr, dbContext);
+    }
+    if (expr.startsWith('dbResult.') || expr.startsWith('dbResults.')) {
+      return resolveResponseSourceValue(response || {}, parsedJson, expr, dbContext);
+    }
+
+    const interpolated = interpolate(expr, vars);
+    if (/^-?\d+(\.\d+)?$/.test(interpolated) && expr.startsWith('{{') && expr.endsWith('}}')) {
+      return Number(interpolated);
+    }
+    return interpolated;
+  }
+
+  function parseDbParams(rawParams, ctx) {
+    if (Array.isArray(rawParams)) {
+      return rawParams.map((p) => resolveDbParamValue(p, ctx));
+    }
+    const trimmed = String(rawParams || '').trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsedArr = JSON.parse(trimmed);
+        if (Array.isArray(parsedArr)) {
+          return parsedArr.map((p) => resolveDbParamValue(p, ctx));
+        }
+      } catch {
+        const inner = trimmed.slice(1, -1).trim();
+        if (!inner) return [];
+        return inner
+          .split(',')
+          .map((token) => token.trim().replace(/^['"]|['"]$/g, ''))
+          .map((token) => resolveDbParamValue(token, ctx));
+      }
+    }
+    return trimmed
+      .split(',')
+      .map((token) => token.trim().replace(/^['"]|['"]$/g, ''))
+      .map((token) => resolveDbParamValue(token, ctx));
+  }
+
+  function applyDeclarativeCaptures(capturesRaw, res, varsObj) {
+    if (!capturesRaw) return;
+    const entries = [];
+    if (Array.isArray(capturesRaw)) {
+      for (const c of capturesRaw) {
+        if (c && c.enabled !== false && (c.source || c.key) && (c.target || c.value)) {
+          entries.push({ path: String(c.source || c.key).trim(), varName: String(c.target || c.value).trim() });
+        }
+      }
+    } else if (typeof capturesRaw === 'string') {
+      const parts = capturesRaw.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+      for (const p of parts) {
+        const arrowIdx = p.indexOf('->');
+        const eqIdx = p.indexOf('=');
+        if (arrowIdx !== -1) {
+          entries.push({ path: p.slice(0, arrowIdx).trim(), varName: p.slice(arrowIdx + 2).trim() });
+        } else if (eqIdx !== -1) {
+          entries.push({ varName: p.slice(0, eqIdx).trim(), path: p.slice(eqIdx + 1).trim() });
+        }
+      }
+    }
+    for (const { path: rawPath, varName } of entries) {
+      if (!rawPath || !varName) continue;
+      const normalized = rawPath.replace(/^dbResult\./, '').replace(/\[(\d+)\]/g, '.$1');
+      const val = getByPath(res, normalized);
+      if (val !== undefined) {
+        varsObj[varName] = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
+      }
+    }
+  }
+
+  async function executeDeclarativeQueries(steps, { conn, vars, response = null, parsedJson = null, dbContext }) {
+    for (const step of steps || []) {
+      if (!step || step.enabled === false || !String(step.query || '').trim()) continue;
+      if (!conn || conn.enabled === false) {
+        throw new Error('Conexão de banco de dados não configurada para executar query SQL.');
+      }
+      const sqlText = interpolate(step.query, vars);
+      const params = parseDbParams(step.params, { vars, response, parsedJson, dbContext });
+      const res = await dbEngine.executeQuery({ connection: conn, query: sqlText, params, timeoutMs });
+      if (!res || !res.ok) {
+        throw new Error(res?.error || 'Falha ao executar query SQL.');
+      }
+      const normalized = {
+        rows: Array.isArray(res.rows) ? res.rows : [],
+        rowCount: Number(res.rowCount ?? (Array.isArray(res.rows) ? res.rows.length : 0)),
+        fields: Array.isArray(res.fields) ? res.fields : [],
+        command: res.command || 'SQL',
+        lastInsertRowid: res.lastInsertRowid ?? null,
+        durationMs: res.durationMs || 0
+      };
+      dbContext.dbResult = normalized;
+      dbContext.results.push(normalized);
+      if (step.name && String(step.name).trim()) {
+        dbContext.dbResults[String(step.name).trim()] = normalized;
+      }
+      applyDeclarativeCaptures(step.captures, normalized, vars);
+    }
+  }
+
+  async function runRequests(requests, { vars = {}, database: runDb = null, stopOnFailure = false } = {}) {
+    const runtimeVars = { ...variables, ...vars };
+    const activeDb = runDb || database;
     const results = [];
     for (const item of requests || []) {
       if (item.__loadError) {
@@ -201,14 +320,127 @@ function createCliRunner({ dataDir, variables = {}, timeoutMs = 30000 } = {}) {
         if (stopOnFailure) break;
         continue;
       }
-      const spec = buildSpec(item, vars);
+
+      const dbContext = { dbResult: null, dbResults: {}, results: [] };
+      let preError = null;
+
+      try {
+        if (Array.isArray(item.preDbQueries) && item.preDbQueries.length > 0) {
+          await executeDeclarativeQueries(item.preDbQueries, {
+            conn: activeDb,
+            vars: runtimeVars,
+            dbContext
+          });
+        }
+        if (item.preRequestScript && item.preRequestScript.trim()) {
+          const preScriptRes = await runUserScriptAsync({
+            code: item.preRequestScript,
+            phase: 'pre',
+            envVars: runtimeVars,
+            request: { method: item.method || 'GET', url: item.url || '', headers: item.headers || [], body: item.body?.raw || '' },
+            dbExecutor: activeDb
+              ? (sql, params) => dbEngine.executeQuery({ connection: activeDb, query: sql, params, timeoutMs })
+              : null,
+            dbResult: dbContext.dbResult,
+            dbResults: dbContext.dbResults
+          });
+          if (Array.isArray(preScriptRes.envSets)) {
+            for (const s of preScriptRes.envSets) {
+              if (s && s.key) runtimeVars[s.key] = s.value;
+            }
+          }
+          if (Array.isArray(preScriptRes.dbQueries) && preScriptRes.dbQueries.length > 0) {
+            const lastQ = preScriptRes.dbQueries[preScriptRes.dbQueries.length - 1];
+            if (lastQ && lastQ.ok) {
+              dbContext.dbResult = { rows: lastQ.rowsPreview || [], rowCount: lastQ.rowCount || 0 };
+            }
+          }
+          if (preScriptRes.error) preError = preScriptRes.error;
+        }
+      } catch (err) {
+        preError = err.message || String(err);
+      }
+
+      if (preError) {
+        results.push({ name: item.name || item.url, method: item.method || 'GET', url: item.url, status: 0, ok: false, error: preError, assertions: [] });
+        if (stopOnFailure) break;
+        continue;
+      }
+
+      const spec = buildSpec(item, runtimeVars);
       const response = await httpEngine.executeHttpRequest(spec);
       let parsed = null;
       try {
         parsed = JSON.parse(response.body || '');
       } catch {}
-      const assertions = evaluateAssertions(item.assertions || [], response, parsed);
-      const allPassed = response.ok && assertions.every((a) => a.passed);
+
+      let postError = null;
+      const scriptAssertions = [];
+      try {
+        if (Array.isArray(item.postDbQueries) && item.postDbQueries.length > 0) {
+          await executeDeclarativeQueries(item.postDbQueries, {
+            conn: activeDb,
+            vars: runtimeVars,
+            response,
+            parsedJson: parsed,
+            dbContext
+          });
+        }
+        if (item.postResponseScript && item.postResponseScript.trim()) {
+          const postScriptRes = await runUserScriptAsync({
+            code: item.postResponseScript,
+            phase: 'post',
+            envVars: runtimeVars,
+            request: { method: spec.method, url: spec.url, headers: spec.headers, body: spec.body?.raw || '' },
+            response,
+            dbExecutor: activeDb
+              ? (sql, params) => dbEngine.executeQuery({ connection: activeDb, query: sql, params, timeoutMs })
+              : null,
+            dbResult: dbContext.dbResult,
+            dbResults: dbContext.dbResults
+          });
+          if (Array.isArray(postScriptRes.envSets)) {
+            for (const s of postScriptRes.envSets) {
+              if (s && s.key) runtimeVars[s.key] = s.value;
+            }
+          }
+          if (Array.isArray(postScriptRes.tests)) {
+            for (const t of postScriptRes.tests) {
+              scriptAssertions.push({
+                source: `[pm.test] ${t.name}`,
+                operator: 'script',
+                target: 'pass',
+                actual: t.passed ? 'OK' : t.actual || 'Falhou',
+                passed: Boolean(t.passed)
+              });
+            }
+          }
+          if (postScriptRes.error) postError = postScriptRes.error;
+        }
+      } catch (err) {
+        postError = err.message || String(err);
+      }
+
+      for (const cap of item.captures || []) {
+        if (!cap || cap.enabled === false || !cap.key || !cap.value) continue;
+        const val = resolveResponseSourceValue(response, parsed, cap.key, dbContext);
+        if (val !== undefined) {
+          runtimeVars[cap.value.trim()] = typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val);
+        }
+      }
+
+      const declarativeAssertions = evaluateAssertions(item.assertions || [], response, parsed, dbContext);
+      const assertions = [...declarativeAssertions, ...scriptAssertions];
+      if (postError) {
+        assertions.push({
+          source: '[Post-request / DB Error]',
+          operator: 'error',
+          target: 'sem erros',
+          actual: postError,
+          passed: false
+        });
+      }
+      const allPassed = response.ok && !postError && assertions.every((a) => a.passed);
       const record = {
         name: item.name || item.url,
         method: spec.method,
@@ -216,8 +448,9 @@ function createCliRunner({ dataDir, variables = {}, timeoutMs = 30000 } = {}) {
         status: response.status,
         ok: Boolean(response.ok && response.status >= 200 && response.status < 400 && allPassed),
         timeMs: response.timeMs,
-        error: response.error || null,
-        assertions
+        error: response.error || postError || null,
+        assertions,
+        dbResult: dbContext.dbResult
       };
       results.push(record);
       responseCache.set(String(item.name || item.id || record.url).toLowerCase(), { name: item.name || record.url, body: response.body });

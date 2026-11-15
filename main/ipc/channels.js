@@ -31,7 +31,9 @@ const INVOKE_CHANNELS = [
   'pm:vault:set',
   'pm:vault:get',
   'pm:vault:delete',
-  'pm:vault:list'
+  'pm:vault:list',
+  'pm:db:query',
+  'pm:db:testConnection'
 ];
 
 const SEND_CHANNELS = [];

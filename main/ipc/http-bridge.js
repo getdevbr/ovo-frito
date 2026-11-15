@@ -1,6 +1,6 @@
 'use strict';
 
-const { runUserScript } = require('../script-sandbox');
+const { runUserScript, runUserScriptAsync } = require('../script-sandbox');
 const { loadAllStores } = require('./storage');
 
 /**
@@ -9,7 +9,7 @@ const { loadAllStores } = require('./storage');
  * para o caller responder UNSUPPORTED_IN_WEB_MODE.
  */
 async function dispatchWebIpc(ctx, channel, payload) {
-  const { storage, httpEngine, vault } = ctx;
+  const { storage, httpEngine, vault, dbEngine } = ctx;
 
   if (channel === 'pm:storage:loadAll') {
     return loadAllStores(storage, ctx.dataDir);
@@ -21,7 +21,20 @@ async function dispatchWebIpc(ctx, channel, payload) {
     return await httpEngine.executeHttpRequest(payload);
   }
   if (channel === 'pm:script:run') {
+    const dbConnection = payload?.dbConnection && typeof payload.dbConnection === 'object' ? payload.dbConnection : null;
+    const dbExecutor = dbEngine && dbConnection && dbConnection.enabled !== false
+      ? async (sql, params) => dbEngine.executeQuery({ connection: dbConnection, query: sql, params, timeoutMs: payload?.timeoutMs || 10000 })
+      : null;
+    if (dbExecutor || (typeof payload?.code === 'string' && (/\bawait\b/.test(payload.code) || /\bpm\.db\.query\b/.test(payload.code)))) {
+      return await runUserScriptAsync({ ...(payload || {}), dbExecutor });
+    }
     return runUserScript(payload || {});
+  }
+  if (channel === 'pm:db:query') {
+    return await dbEngine.executeQuery(payload || {});
+  }
+  if (channel === 'pm:db:testConnection') {
+    return await dbEngine.testConnection(payload || {});
   }
   if (channel === 'pm:vault:unlock') {
     return vault.unlock(payload?.password);

@@ -23,7 +23,7 @@
     return current;
   }
 
-  function resolveResponseSourceValue(response, parsedJson, sourceExpr) {
+  function resolveResponseSourceValue(response, parsedJson, sourceExpr, dbContext = null) {
     const src = String(sourceExpr || '').trim();
     if (src === 'status') return response?.status;
     if (src === 'timeMs') return response?.timeMs;
@@ -37,14 +37,24 @@
     if (src.startsWith('json.')) {
       return getByPath(parsedJson, src.slice('json.'.length));
     }
+    if (src.startsWith('dbResult.') || src.startsWith('db.')) {
+      const subPath = src.startsWith('dbResult.') ? src.slice('dbResult.'.length) : src.slice('db.'.length);
+      const lastDb = dbContext?.dbResult || response?.dbResult || null;
+      return getByPath(lastDb, subPath);
+    }
+    if (src.startsWith('dbResults.')) {
+      const subPath = src.slice('dbResults.'.length);
+      const namedDb = dbContext?.dbResults || response?.dbResults || null;
+      return getByPath(namedDb, subPath);
+    }
     return undefined;
   }
 
-  function evaluateAssertions(assertions, response, parsedJson) {
+  function evaluateAssertions(assertions, response, parsedJson, dbContext = null) {
     const results = [];
     for (const rule of assertions || []) {
       if (!rule || rule.enabled === false) continue;
-      const actual = resolveResponseSourceValue(response, parsedJson, rule.source);
+      const actual = resolveResponseSourceValue(response, parsedJson, rule.source, dbContext);
       const target = rule.target;
       let passed = false;
 

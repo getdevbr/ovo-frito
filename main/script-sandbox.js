@@ -35,6 +35,14 @@ function createChaiLikeExpect(actual) {
           check(!!actual, `valor não é truthy (${actual})`);
           return true;
         },
+        get true() {
+          check(actual === true, `esperado true, obtido ${JSON.stringify(actual)}`);
+          return true;
+        },
+        get false() {
+          check(actual === false, `esperado false, obtido ${JSON.stringify(actual)}`);
+          return true;
+        },
         above(n) {
           check(Number(actual) > Number(n), `esperado > ${n}, obtido ${actual}`);
         },
@@ -70,25 +78,27 @@ function serializeForSandbox(value, depth = 0) {
   return String(value);
 }
 
-function runUserScript({ code, phase = 'pre', envVars = [], request = {}, response = null, timeoutMs = 2000 } = {}) {
+function buildSandboxEnv({ phase = 'pre', envVars = [], request = {}, response = null, dbResult = null, dbResults = {}, dbExecutor = null }) {
   const result = {
     ok: false,
     error: null,
     logs: [],
     envSets: [],
     headersAdded: [],
-    tests: []
+    tests: [],
+    dbQueries: []
   };
 
-  if (!code || typeof code !== 'string') {
-    result.ok = true;
-    return result;
-  }
-
   const envStore = new Map();
-  for (const v of envVars || []) {
-    if (v && v.enabled !== false && typeof v.key === 'string') {
-      envStore.set(v.key, String(v.value ?? ''));
+  if (Array.isArray(envVars)) {
+    for (const v of envVars) {
+      if (v && v.enabled !== false && typeof v.key === 'string') {
+        envStore.set(v.key, String(v.value ?? ''));
+      }
+    }
+  } else if (envVars && typeof envVars === 'object') {
+    for (const [k, val] of Object.entries(envVars)) {
+      envStore.set(String(k), String(val ?? ''));
     }
   }
 
@@ -116,16 +126,28 @@ function runUserScript({ code, phase = 'pre', envVars = [], request = {}, respon
     }
   };
 
+  const parsedResponseBody = (() => {
+    if (!response) return null;
+    if (response.parsedJson !== undefined && response.parsedJson !== null) return serializeForSandbox(response.parsedJson);
+    try {
+      return serializeForSandbox(JSON.parse(response.body || 'null'));
+    } catch {
+      return response.body || null;
+    }
+  })();
+
   const responseApi = response
     ? {
         code: response.status,
-        status: response.statusText,
+        status: response.status,
+        statusText: response.statusText,
         responseTime: response.timeMs,
         headers: serializeForSandbox(response.headers || {}),
+        body: parsedResponseBody,
         text: () => String(response.body || ''),
         json: () => {
-          if (response.parsedJson !== undefined && response.parsedJson !== null) return response.parsedJson;
-          return JSON.parse(response.body || 'null');
+          if (response.parsedJson !== undefined && response.parsedJson !== null) return serializeForSandbox(response.parsedJson);
+          return serializeForSandbox(JSON.parse(response.body || 'null'));
         },
         to: {
           have: {
@@ -153,6 +175,53 @@ function runUserScript({ code, phase = 'pre', envVars = [], request = {}, respon
       }
     : null;
 
+  const safeLastDbResult = serializeForSandbox(
+    dbResult || { rows: [], rowCount: 0, fields: [] }
+  );
+  const safeNamedDbResults = serializeForSandbox(dbResults || {});
+
+  const dbApi = {
+    get lastResult() {
+      return safeLastDbResult;
+    },
+    get results() {
+      return safeNamedDbResults;
+    },
+    async query(sql, params = []) {
+      if (typeof dbExecutor !== 'function') {
+        throw new Error('Executor de banco de dados não disponível ou nenhuma conexão ativa configurada no Environment.');
+      }
+      const safeSql = String(sql || '');
+      const safeParams = Array.isArray(params) ? serializeForSandbox(params) : [];
+      const queryOut = await dbExecutor(safeSql, safeParams);
+      const sanitized = serializeForSandbox({
+        ok: Boolean(queryOut?.ok),
+        rows: Array.isArray(queryOut?.rows) ? queryOut.rows : [],
+        rowCount: typeof queryOut?.rowCount === 'number' ? queryOut.rowCount : 0,
+        fields: Array.isArray(queryOut?.fields) ? queryOut.fields : [],
+        command: queryOut?.command || '',
+        durationMs: queryOut?.durationMs || 0,
+        error: queryOut?.error || null
+      });
+      result.dbQueries.push({
+        phase,
+        sql: safeSql,
+        params: safeParams,
+        ok: sanitized.ok,
+        rowCount: sanitized.rowCount,
+        durationMs: sanitized.durationMs,
+        error: sanitized.error,
+        rowsPreview: (sanitized.rows || []).slice(0, 20)
+      });
+      if (!sanitized.ok) {
+        throw new Error(sanitized.error || 'Falha ao executar query SQL');
+      }
+      return sanitized;
+    }
+  };
+
+  const pendingTests = [];
+
   const pm = {
     environment: envApi,
     variables: envApi,
@@ -160,11 +229,24 @@ function runUserScript({ code, phase = 'pre', envVars = [], request = {}, respon
     collectionVariables: envApi,
     request: requestApi,
     response: responseApi,
+    db: Object.freeze(dbApi),
     expect: (val) => createChaiLikeExpect(val),
     test(testName, fn) {
       try {
-        fn();
-        result.tests.push({ name: String(testName), passed: true, actual: 'OK' });
+        const ret = fn();
+        if (ret && typeof ret.then === 'function') {
+          const p = Promise.resolve(ret).then(
+            () => {
+              result.tests.push({ name: String(testName), passed: true, actual: 'OK' });
+            },
+            (err) => {
+              result.tests.push({ name: String(testName), passed: false, actual: err && err.message ? err.message : String(err) });
+            }
+          );
+          pendingTests.push(p);
+        } else {
+          result.tests.push({ name: String(testName), passed: true, actual: 'OK' });
+        }
       } catch (err) {
         result.tests.push({ name: String(testName), passed: false, actual: err.message });
       }
@@ -172,17 +254,31 @@ function runUserScript({ code, phase = 'pre', envVars = [], request = {}, respon
   };
 
   const consoleApi = {
-    log: (...args) => result.logs.push({ level: 'INFO', message: args.map(String).join(' ') }),
-    info: (...args) => result.logs.push({ level: 'INFO', message: args.map(String).join(' ') }),
-    warn: (...args) => result.logs.push({ level: 'WARN', message: args.map(String).join(' ') }),
-    error: (...args) => result.logs.push({ level: 'ERROR', message: args.map(String).join(' ') }),
-    debug: (...args) => result.logs.push({ level: 'INFO', message: args.map(String).join(' ') })
+    log: (...args) => result.logs.push({ level: 'INFO', message: args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') }),
+    info: (...args) => result.logs.push({ level: 'INFO', message: args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') }),
+    warn: (...args) => result.logs.push({ level: 'WARN', message: args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') }),
+    error: (...args) => result.logs.push({ level: 'ERROR', message: args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') }),
+    debug: (...args) => result.logs.push({ level: 'INFO', message: args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ') })
   };
 
   const sandbox = Object.freeze({
     pm: Object.freeze(pm),
-    console: Object.freeze(consoleApi)
+    console: Object.freeze(consoleApi),
+    response: responseApi ? Object.freeze(responseApi) : null,
+    dbResult: Object.freeze(safeLastDbResult),
+    dbResults: Object.freeze(safeNamedDbResults)
   });
+
+  return { result, sandbox, pendingTests };
+}
+
+function runUserScript({ code, phase = 'pre', envVars = [], request = {}, response = null, dbResult = null, dbResults = {}, timeoutMs = 2000 } = {}) {
+  const { result, sandbox } = buildSandboxEnv({ phase, envVars, request, response, dbResult, dbResults });
+
+  if (!code || typeof code !== 'string') {
+    result.ok = true;
+    return result;
+  }
 
   let context;
   try {
@@ -203,4 +299,68 @@ function runUserScript({ code, phase = 'pre', envVars = [], request = {}, respon
   return result;
 }
 
-module.exports = { runUserScript, createChaiLikeExpect };
+async function runUserScriptAsync({
+  code,
+  phase = 'pre',
+  envVars = [],
+  request = {},
+  response = null,
+  dbResult = null,
+  dbResults = {},
+  dbExecutor = null,
+  timeoutMs = 5000
+} = {}) {
+  const hasAsync = typeof code === 'string' && (/\bawait\b/.test(code) || /\bpm\.db\.query\b/.test(code));
+  if (!hasAsync && typeof dbExecutor !== 'function') {
+    return runUserScript({ code, phase, envVars, request, response, dbResult, dbResults, timeoutMs });
+  }
+
+  const { result, sandbox, pendingTests } = buildSandboxEnv({
+    phase,
+    envVars,
+    request,
+    response,
+    dbResult,
+    dbResults,
+    dbExecutor
+  });
+
+  if (!code || typeof code !== 'string') {
+    result.ok = true;
+    return result;
+  }
+
+  const effectiveTimeout = Math.max(100, Math.min(30000, Number(timeoutMs) || 5000));
+  let timer = null;
+  try {
+    const context = vm.createContext(sandbox, {
+      codeGeneration: { strings: false, wasm: false }
+    });
+    const wrappedCode = hasAsync ? `(async () => {\n${code}\n})()` : code;
+    const ret = vm.runInContext(wrappedCode, context, {
+      timeout: effectiveTimeout
+    });
+    if (ret && typeof ret.then === 'function') {
+      await Promise.race([
+        ret,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`Script async excedeu o tempo limite de ${effectiveTimeout}ms`)), effectiveTimeout);
+        })
+      ]);
+    }
+    if (pendingTests.length > 0) {
+      await Promise.all(pendingTests);
+    }
+    result.ok = true;
+  } catch (err) {
+    result.ok = false;
+    result.error = err && err.message ? err.message : String(err);
+    result.logs.push({ level: 'ERROR', message: `Erro no ${phase === 'post' ? 'Post-response' : 'Pre-request'} Script: ${result.error}` });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+
+  return result;
+}
+
+module.exports = { runUserScript, runUserScriptAsync, createChaiLikeExpect };

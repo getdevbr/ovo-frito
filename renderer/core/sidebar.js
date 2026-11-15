@@ -461,6 +461,8 @@ function openRequestInTab(item, collectionId = null) {
     body: item.body || { mode: 'none', raw: '', graphqlQuery: '', graphqlVars: '{\n  \n}', urlencoded: [], formdata: [] },
     assertions: item.assertions || [{ source: 'status', operator: '==', target: '200', enabled: true }],
     captures: item.captures || [],
+    preDbQueries: Array.isArray(item.preDbQueries) ? item.preDbQueries : [],
+    postDbQueries: Array.isArray(item.postDbQueries) ? item.postDbQueries : [],
     preRequestScript: item.preRequestScript || '',
     postResponseScript: item.postResponseScript || '',
     history: Array.isArray(item.history) ? item.history : [],
@@ -491,6 +493,8 @@ async function syncTabBackToCollectionItem(tab, { includeHistory = true } = {}) 
   item.body = structuredClone(tab.body);
   item.assertions = structuredClone(tab.assertions);
   item.captures = structuredClone(tab.captures);
+  item.preDbQueries = Array.isArray(tab.preDbQueries) ? structuredClone(tab.preDbQueries) : [];
+  item.postDbQueries = Array.isArray(tab.postDbQueries) ? structuredClone(tab.postDbQueries) : [];
   item.preRequestScript = tab.preRequestScript || '';
   item.postResponseScript = tab.postResponseScript || '';
   if (includeHistory) {

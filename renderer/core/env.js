@@ -20,6 +20,19 @@ function ensureEnvProfileStructure(env) {
   if (env.borderColor === undefined) {
     env.borderColor = '';
   }
+  if (!env.database || typeof env.database !== 'object') {
+    env.database = {
+      enabled: false,
+      client: 'postgres',
+      connectionString: '',
+      host: '127.0.0.1',
+      port: 5432,
+      user: 'postgres',
+      password: '',
+      database: ':memory:',
+      ssl: false
+    };
+  }
   // Remove valores legados fixos ('dev', 'homol', 'prod', 'custom') caso não sejam profiles criados pelo usuário
   if (env.profile && !env.customProfiles.some((cp) => cp.id === env.profile)) {
     env.profile = '';
@@ -28,6 +41,31 @@ function ensureEnvProfileStructure(env) {
     env.profile = '';
   }
   return env;
+}
+
+function resolveActiveDbConnection(env = getActiveEnvironment()) {
+  if (!env) return null;
+  ensureEnvProfileStructure(env);
+  let dbCfg = env.database;
+  if (env.profile) {
+    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
+    if (cp && cp.database && cp.database.enabled) {
+      dbCfg = cp.database;
+    }
+  }
+  if (!dbCfg || !dbCfg.enabled) return null;
+  return {
+    enabled: true,
+    envId: env.id,
+    client: interpolateVariables(String(dbCfg.client || 'postgres')).trim().toLowerCase(),
+    connectionString: interpolateVariables(String(dbCfg.connectionString || '')),
+    host: interpolateVariables(String(dbCfg.host || '127.0.0.1')),
+    port: Number(interpolateVariables(String(dbCfg.port || (dbCfg.client === 'mysql' ? 3306 : 5432)))) || 5432,
+    user: interpolateVariables(String(dbCfg.user || '')),
+    password: interpolateVariables(String(dbCfg.password || '')),
+    database: interpolateVariables(String(dbCfg.database || '')),
+    ssl: Boolean(dbCfg.ssl)
+  };
 }
 
 
@@ -406,6 +444,7 @@ function getOrInitActiveEnvForScripts() {
   const api = {
     getActiveEnvironment,
     ensureEnvProfileStructure,
+    resolveActiveDbConnection,
     getEnvProfileMeta,
     switchEnvironmentActiveProfile,
     applyActiveEnvProfileContour,

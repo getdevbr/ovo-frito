@@ -4,12 +4,14 @@
  * ============================================================================ */
 function getByPath(obj, pathExpr) {
   if (!obj || !pathExpr) return undefined;
-  const parts = pathExpr
+  const parts = String(pathExpr)
     .replace(/^json\.?/i, '')
+    .replace(/\[(\d+)\]/g, '.$1')
     .split('.')
     .filter(Boolean);
   let cur = obj;
   for (const p of parts) {
+    if (p === '__proto__' || p === 'prototype' || p === 'constructor') return undefined;
     if (cur === null || cur === undefined) return undefined;
     cur = cur[p];
   }
@@ -17,23 +19,222 @@ function getByPath(obj, pathExpr) {
 }
 
 
-function resolveResponseSourceValue(response, parsedJson, sourceExpr) {
+function resolveResponseSourceValue(response, parsedJson, sourceExpr, dbContext = null) {
   const s = (sourceExpr || '').trim();
-  if (s === 'status') return response.status;
-  if (s === 'timeMs') return response.timeMs;
-  if (s === 'sizeBytes') return response.sizeBytes;
-  if (s === 'body') return response.body || '';
+  if (s === 'status') return response?.status;
+  if (s === 'timeMs') return response?.timeMs;
+  if (s === 'sizeBytes') return response?.sizeBytes;
+  if (s === 'body') return response?.body || '';
   if (s.toLowerCase().startsWith('header.')) {
     const hName = s.slice(7).trim().toLowerCase();
-    for (const [k, v] of Object.entries(response.headers || {})) {
+    for (const [k, v] of Object.entries(response?.headers || {})) {
       if (k.toLowerCase() === hName) return Array.isArray(v) ? v.join(', ') : String(v);
     }
     return undefined;
+  }
+  if (s.startsWith('dbResult.') || s.startsWith('db.')) {
+    const subPath = s.startsWith('dbResult.') ? s.slice('dbResult.'.length) : s.slice('db.'.length);
+    const lastDb = dbContext?.dbResult || response?.dbResult || null;
+    return getByPath(lastDb, subPath);
+  }
+  if (s.startsWith('dbResults.')) {
+    const subPath = s.slice('dbResults.'.length);
+    const namedDb = dbContext?.dbResults || response?.dbResults || null;
+    return getByPath(namedDb, subPath);
   }
   if (s.toLowerCase().startsWith('json.') || s.toLowerCase() === 'json') {
     return getByPath(parsedJson, s);
   }
   return getByPath(parsedJson, s);
+}
+
+
+function resolveDbQueryParameterValue(rawToken, response, parsedJson, dbContext) {
+  if (rawToken === null || rawToken === undefined || typeof rawToken === 'number' || typeof rawToken === 'boolean') {
+    return rawToken;
+  }
+  const str = String(rawToken).trim();
+  if (!str) return '';
+
+  // Suporte direto a response.body.<path> ou json.<path> ou response.status
+  if (/^response\.body\./i.test(str)) {
+    const val = getByPath(parsedJson, str.replace(/^response\.body\./i, ''));
+    if (val !== undefined) return val;
+  }
+  if (/^json\./i.test(str)) {
+    const val = getByPath(parsedJson, str.slice(5));
+    if (val !== undefined) return val;
+  }
+  if (/^response\.status$/i.test(str)) {
+    return response?.status;
+  }
+  if (/^(dbResult|db)\./.test(str)) {
+    const val = resolveResponseSourceValue(response, parsedJson, str, dbContext);
+    if (val !== undefined) return val;
+  }
+
+  // Interpola {{var}}, {{@Req.json.x}} e também {{response.body.x}}
+  const interpolated = interpolateVariables(str).replace(/\{\{\s*response\.body\.([^}]+?)\s*\}\}/gi, (_m, p) => {
+    const v = getByPath(parsedJson, p.trim());
+    return v !== undefined && v !== null ? String(v) : '';
+  });
+
+  if (/^-?\d+(\.\d+)?$/.test(interpolated) && str.startsWith('response.')) {
+    return Number(interpolated);
+  }
+  return interpolated;
+}
+
+
+function parseDbQueryParamsList(rawParams, response = null, parsedJson = null, dbContext = null) {
+  if (Array.isArray(rawParams)) {
+    return rawParams.map((item) => resolveDbQueryParameterValue(item, response, parsedJson, dbContext));
+  }
+  const text = String(rawParams ?? '').trim();
+  if (!text) return [];
+
+  // Se o usuário digitou um array JSON ou estilo JS `[response.body.id, "ativo"]`
+  if (text.startsWith('[') && text.endsWith(']')) {
+    try {
+      const parsedArr = JSON.parse(text);
+      if (Array.isArray(parsedArr)) {
+        return parsedArr.map((item) => resolveDbQueryParameterValue(item, response, parsedJson, dbContext));
+      }
+    } catch {
+      const inner = text.slice(1, -1).trim();
+      if (!inner) return [];
+      return inner.split(',').map((part) => {
+        const clean = part.trim().replace(/^['"]|['"]$/g, '');
+        return resolveDbQueryParameterValue(clean, response, parsedJson, dbContext);
+      });
+    }
+  }
+
+  return text.split(',').map((part) => {
+    const clean = part.trim().replace(/^['"]|['"]$/g, '');
+    return resolveDbQueryParameterValue(clean, response, parsedJson, dbContext);
+  });
+}
+
+
+async function executeDeclarativeDbSteps(tab, phase = 'pre', response = null, parsedJson = null) {
+  const list = phase === 'post' ? tab.postDbQueries : tab.preDbQueries;
+  const steps = Array.isArray(list) ? list.filter((q) => q && q.enabled !== false && String(q.query || '').trim()) : [];
+  const captureOutcomes = [];
+  const assertionOutcomes = [];
+  if (steps.length === 0) {
+    return { dbResult: tab.dbContext?.dbResult || null, dbResults: tab.dbContext?.dbResults || {}, captures: captureOutcomes, assertions: assertionOutcomes };
+  }
+
+  if (!tab.dbContext) {
+    tab.dbContext = { dbResult: null, dbResults: {}, history: [] };
+  }
+
+  const conn = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection() : null;
+  const scriptConsole = createScriptConsoleProxy(tab, phase === 'post' ? 'Post-DB' : 'Pre-DB');
+
+  if (!conn) {
+    const msg = 'Conexão de banco de dados não configurada ou desativada no Environment atual.';
+    scriptConsole.error(msg);
+    assertionOutcomes.push({
+      source: `DB (${phase})`,
+      operator: '=>',
+      target: 'Conexão ativa no Environment',
+      actual: msg,
+      passed: false
+    });
+    return { dbResult: tab.dbContext.dbResult, dbResults: tab.dbContext.dbResults, captures: captureOutcomes, assertions: assertionOutcomes };
+  }
+
+  let envUpdated = false;
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const stepName = String(step.name || `query_${i + 1}`).trim();
+    const sql = interpolateVariables(String(step.query || '').trim());
+    const params = parseDbQueryParamsList(step.params, response, parsedJson, tab.dbContext);
+
+    const res = await IPC.invoke('pm:db:query', {
+      connection: conn,
+      query: sql,
+      params,
+      timeoutMs: Number(state.settings?.timeoutMs) || 10000
+    });
+
+    const normalizedRes = {
+      ok: Boolean(res?.ok),
+      rows: Array.isArray(res?.rows) ? res.rows : [],
+      rowCount: typeof res?.rowCount === 'number' ? res.rowCount : 0,
+      fields: Array.isArray(res?.fields) ? res.fields : [],
+      command: res?.command || '',
+      durationMs: res?.durationMs || 0,
+      error: res?.error || null
+    };
+
+    tab.dbContext.dbResult = normalizedRes;
+    tab.dbContext.dbResults[stepName] = normalizedRes;
+    tab.dbContext.history.push({
+      phase,
+      name: stepName,
+      sql,
+      params,
+      ...normalizedRes
+    });
+
+    if (!normalizedRes.ok) {
+      scriptConsole.error(`[${stepName}] Falha SQL: ${normalizedRes.error}`);
+      assertionOutcomes.push({
+        source: `DB Query (${stepName})`,
+        operator: '=>',
+        target: sql,
+        actual: normalizedRes.error || 'Erro SQL',
+        passed: false
+      });
+      continue;
+    }
+
+    scriptConsole.log(`[${stepName}] SQL OK (${normalizedRes.rowCount} row(s), ${normalizedRes.durationMs}ms): ${sql}`);
+
+    // Capturas da query para o Environment (formato "rows.0.id -> user_id; rowCount -> total_rows" ou "rows.0.id=user_id")
+    const capturesRaw = String(step.captures || '').trim();
+    if (capturesRaw) {
+      const pairs = capturesRaw.split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
+      for (const pair of pairs) {
+        const parts = pair.includes('->') ? pair.split('->') : pair.split('=');
+        if (parts.length < 2) continue;
+        const srcPath = parts[0].trim().replace(/^(dbResult|db)\./, '');
+        const targetVarName = parts.slice(1).join('=').trim().replace(/^\{\{|\}\}$/g, '');
+        if (!srcPath || !targetVarName) continue;
+        const extracted = getByPath(normalizedRes, srcPath);
+        if (extracted !== undefined) {
+          const env = getOrInitActiveEnvForScripts();
+          const strVal = typeof extracted === 'object' && extracted !== null ? JSON.stringify(extracted) : String(extracted);
+          const existingVar = (env.variables || []).find((v) => v.key === targetVarName);
+          if (existingVar) {
+            existingVar.value = strVal;
+            existingVar.enabled = true;
+          } else {
+            env.variables.push({ key: targetVarName, value: strVal, enabled: true, secret: false });
+          }
+          envUpdated = true;
+          captureOutcomes.push({ source: `db.${srcPath}`, varName: targetVarName, value: strVal, ok: true });
+        } else {
+          captureOutcomes.push({ source: `db.${srcPath}`, varName: targetVarName, value: 'não encontrado', ok: false });
+        }
+      }
+    }
+  }
+
+  if (envUpdated) {
+    await persistStore('environments');
+    await persistStore('settings');
+  }
+
+  return {
+    dbResult: tab.dbContext.dbResult,
+    dbResults: tab.dbContext.dbResults,
+    captures: captureOutcomes,
+    assertions: assertionOutcomes
+  };
 }
 
 
@@ -44,9 +245,24 @@ async function evaluateAssertionsAndCaptures(tab, response) {
   } catch {}
 
   const assertionOutcomes = [];
+  const captureOutcomes = [];
+
+  // 1. Executa Queries SQL Pós-request declarativas antes de avaliar as assertions declarativas e o script pós-request
+  const postDbOut = await executeDeclarativeDbSteps(tab, 'post', response, parsedJson);
+  assertionOutcomes.push(...postDbOut.assertions);
+  captureOutcomes.push(...postDbOut.captures);
+
+  // 2. Executa Post-response Script (pm.test / pm.expect / pm.db.query / dbResult) se configurado
+  if (tab.postResponseScript && tab.postResponseScript.trim()) {
+    const scriptResults = await executePostResponseScript(tab, response, parsedJson);
+    assertionOutcomes.push(...scriptResults.assertions);
+    captureOutcomes.push(...scriptResults.captures);
+  }
+
+  // 3. Avalia Assertions Declarativas (suportando status, json.*, header.*, dbResult.rows.0.*, dbResult.rowCount, dbResults.<nome>.*)
   for (const a of tab.assertions || []) {
     if (!a || a.enabled === false || !a.source) continue;
-    const actual = resolveResponseSourceValue(response, parsedJson, a.source);
+    const actual = resolveResponseSourceValue(response, parsedJson, a.source, tab.dbContext);
     const op = a.operator || '==';
     const expected = interpolateVariables(String(a.target ?? ''));
     let passed = false;
@@ -76,13 +292,12 @@ async function evaluateAssertionsAndCaptures(tab, response) {
     });
   }
 
-  const captureOutcomes = [];
   let envUpdated = false;
   for (const c of tab.captures || []) {
     if (!c || c.enabled === false || !c.key || !c.value) continue;
     const sourcePath = c.key.trim();
     const targetVarName = c.value.trim().replace(/^\{\{|\}\}$/g, '');
-    const extracted = resolveResponseSourceValue(response, parsedJson, sourcePath);
+    const extracted = resolveResponseSourceValue(response, parsedJson, sourcePath, tab.dbContext);
 
     if (extracted !== undefined) {
       let env = getActiveEnvironment();
@@ -113,13 +328,6 @@ async function evaluateAssertionsAndCaptures(tab, response) {
   if (envUpdated) {
     await persistStore('environments');
     await persistStore('settings');
-  }
-
-  // Executa Post-response Script (pm.test / pm.expect / pm.environment.set) se configurado
-  if (tab.postResponseScript && tab.postResponseScript.trim()) {
-    const scriptResults = await executePostResponseScript(tab, response, parsedJson);
-    assertionOutcomes.push(...scriptResults.assertions);
-    captureOutcomes.push(...scriptResults.captures);
   }
 
   tab.testResults = {
@@ -174,16 +382,26 @@ function createScriptConsoleProxy(tab, phase = 'Pre-request') {
 
 async function executePreRequestScript(tab) {
   tab.scriptConsoleLogs = [];
+  tab.dbContext = { dbResult: null, dbResults: {}, history: [] };
+
+  // 1. Executa steps SQL declarativos pré-request (Data Seeding / Data Fetching)
+  const preDbOut = await executeDeclarativeDbSteps(tab, 'pre', null, null);
+  tab._preDbOutcomes = preDbOut;
+
   const code = (tab.preRequestScript || '').trim();
   if (!code) return;
   let envDirty = false;
   const env = getOrInitActiveEnvForScripts();
+  const dbConnection = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection(env) : null;
 
   const result = await IPC.invoke('pm:script:run', {
     phase: 'pre',
     code,
     envVars: (env.variables || []).map((v) => ({ key: v.key, value: v.value, enabled: v.enabled !== false })),
     request: {},
+    dbConnection,
+    dbResult: tab.dbContext?.dbResult || null,
+    dbResults: tab.dbContext?.dbResults || {},
     timeoutMs: 5000
   });
 
@@ -195,6 +413,10 @@ async function executePreRequestScript(tab) {
     if (log.level === 'WARN') scriptConsole.warn(log.message);
     else if (log.level === 'ERROR') scriptConsole.error(log.message);
     else scriptConsole.log(log.message);
+  }
+  for (const q of result?.dbQueries || []) {
+    tab.dbContext.dbResult = { ok: q.ok, rows: q.rowsPreview || [], rowCount: q.rowCount || 0, durationMs: q.durationMs || 0, error: q.error || null };
+    tab.dbContext.history.push(q);
   }
 
   for (const h of result?.headersAdded || []) {
@@ -227,6 +449,7 @@ async function executePostResponseScript(tab, response, parsedJson) {
 
   let envDirty = false;
   const env = getOrInitActiveEnvForScripts();
+  const dbConnection = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection(env) : null;
 
   const result = await IPC.invoke('pm:script:run', {
     phase: 'post',
@@ -241,6 +464,9 @@ async function executePostResponseScript(tab, response, parsedJson) {
       body: response.body || '',
       parsedJson: parsedJson ?? null
     },
+    dbConnection,
+    dbResult: tab.dbContext?.dbResult || null,
+    dbResults: tab.dbContext?.dbResults || {},
     timeoutMs: 5000
   });
 
@@ -259,6 +485,11 @@ async function executePostResponseScript(tab, response, parsedJson) {
     if (log.level === 'WARN') scriptConsole.warn(log.message);
     else if (log.level === 'ERROR') scriptConsole.error(log.message);
     else scriptConsole.log(log.message);
+  }
+  for (const q of result?.dbQueries || []) {
+    if (!tab.dbContext) tab.dbContext = { dbResult: null, dbResults: {}, history: [] };
+    tab.dbContext.dbResult = { ok: q.ok, rows: q.rowsPreview || [], rowCount: q.rowCount || 0, durationMs: q.durationMs || 0, error: q.error || null };
+    tab.dbContext.history.push(q);
   }
 
   for (const set of result?.envSets || []) {
@@ -445,6 +676,10 @@ async function executeTabRequestObject(tab) {
     }
 
     await evaluateAssertionsAndCaptures(tab, response);
+    if (tab._preDbOutcomes) {
+      tab.testResults.assertions.unshift(...(tab._preDbOutcomes.assertions || []));
+      tab.testResults.captures.unshift(...(tab._preDbOutcomes.captures || []));
+    }
   }
 
   // Registra no Histórico Individual desta Requisição
@@ -517,6 +752,9 @@ async function sendActiveRequest() {
   const api = {
     getByPath,
     resolveResponseSourceValue,
+    resolveDbQueryParameterValue,
+    parseDbQueryParamsList,
+    executeDeclarativeDbSteps,
     evaluateAssertionsAndCaptures,
     createScriptConsoleProxy,
     executePreRequestScript,

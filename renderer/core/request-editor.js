@@ -313,7 +313,7 @@ function renderAssertionsTable(tab) {
     const srcInput = document.createElement('input');
     srcInput.type = 'text';
     srcInput.className = 'kv-input';
-    srcInput.placeholder = 'status | timeMs | json.id | header.content-type';
+    srcInput.placeholder = 'status | timeMs | json.id | dbResult.rows[0].name | dbResult.rowCount | header.content-type';
     srcInput.value = row.source || '';
     srcInput.addEventListener('input', () => {
       row.source = srcInput.value;
@@ -357,6 +357,105 @@ function renderAssertionsTable(tab) {
     div.appendChild(targetInput);
     div.appendChild(delBtn);
     container.appendChild(div);
+  });
+}
+
+
+function renderDbQueriesTable(containerId, rows, phase, tab) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-hint';
+    empty.textContent =
+      phase === 'prerequest'
+        ? 'Nenhuma query SQL pré-request configurada.'
+        : 'Nenhuma query SQL pós-request configurada.';
+    container.appendChild(empty);
+    return;
+  }
+
+  rows.forEach((row, index) => {
+    const card = document.createElement('div');
+    card.style.cssText =
+      'border:1px solid var(--border-color); border-radius:6px; padding:8px; margin-bottom:8px; background:rgba(15,23,42,0.35); display:flex; flex-direction:column; gap:6px;';
+
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display:grid; grid-template-columns:22px 1fr 1fr 28px; gap:6px; align-items:center;';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = row.enabled !== false;
+    checkbox.addEventListener('change', () => {
+      row.enabled = checkbox.checked;
+      renderActiveBadges(tab);
+    });
+
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'kv-input';
+    nameInput.placeholder = phase === 'prerequest' ? 'Alias (ex: seed_user)' : 'Alias (ex: check_user)';
+    nameInput.value = row.name || '';
+    nameInput.addEventListener('input', () => {
+      row.name = nameInput.value;
+    });
+
+    const paramsInput = document.createElement('input');
+    paramsInput.type = 'text';
+    paramsInput.className = 'kv-input';
+    paramsInput.placeholder =
+      phase === 'prerequest'
+        ? 'Params $1, $2 (ex: [{{tenant_id}}, "ativo"])'
+        : 'Params $1, $2 (ex: [response.body.id] ou [json.id])';
+    paramsInput.value = Array.isArray(row.params) ? JSON.stringify(row.params) : (row.params ?? '');
+    paramsInput.addEventListener('input', () => {
+      row.params = paramsInput.value;
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-icon';
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', () => {
+      rows.splice(index, 1);
+      renderDbQueriesTable(containerId, rows, phase, tab);
+      renderActiveBadges(tab);
+    });
+
+    topRow.appendChild(checkbox);
+    topRow.appendChild(nameInput);
+    topRow.appendChild(paramsInput);
+    topRow.appendChild(delBtn);
+
+    const sqlTextarea = document.createElement('textarea');
+    sqlTextarea.className = 'code-textarea';
+    sqlTextarea.rows = 2;
+    sqlTextarea.style.cssText = 'min-height:48px; font-family:var(--font-mono, monospace); font-size:12px;';
+    sqlTextarea.placeholder =
+      phase === 'prerequest'
+        ? 'SELECT id, email FROM users WHERE status = $1 LIMIT 1'
+        : 'SELECT id, name, email FROM users WHERE id = $1';
+    sqlTextarea.value = row.query || '';
+    sqlTextarea.addEventListener('input', () => {
+      row.query = sqlTextarea.value;
+      renderActiveBadges(tab);
+    });
+
+    const capturesInput = document.createElement('input');
+    capturesInput.type = 'text';
+    capturesInput.className = 'kv-input';
+    capturesInput.placeholder =
+      'Capturar para {{variavel}} (ex: rows[0].id -> user_id, rows[0].email -> user_email)';
+    capturesInput.value = typeof row.captures === 'string' ? row.captures : '';
+    capturesInput.addEventListener('input', () => {
+      row.captures = capturesInput.value;
+    });
+
+    card.appendChild(topRow);
+    card.appendChild(sqlTextarea);
+    card.appendChild(capturesInput);
+    container.appendChild(card);
   });
 }
 
@@ -525,6 +624,8 @@ function renderActiveRequest() {
 
   if (!Array.isArray(tab.assertions)) tab.assertions = [{ source: 'status', operator: '==', target: '200', enabled: true }];
   if (!Array.isArray(tab.captures)) tab.captures = [];
+  if (!Array.isArray(tab.preDbQueries)) tab.preDbQueries = [];
+  if (!Array.isArray(tab.postDbQueries)) tab.postDbQueries = [];
 
   document.getElementById('reqNameInput').value = tab.name || '';
   const reqMethodEl = document.getElementById('reqMethod');
@@ -638,6 +739,10 @@ function renderActiveRequest() {
   document.getElementById('preRequestScriptInput').value = tab.preRequestScript || '';
   document.getElementById('postResponseScriptInput').value = tab.postResponseScript || '';
 
+  // Database (SQL) Pre & Post
+  renderDbQueriesTable('preDbQueriesList', tab.preDbQueries, 'prerequest', tab);
+  renderDbQueriesTable('postDbQueriesList', tab.postDbQueries, 'test', tab);
+
   // Tests & Captura
   renderAssertionsTable(tab);
   renderKeyValueTable(
@@ -668,6 +773,14 @@ function renderActiveBadges(tab) {
 
   const hasScripts = !!(tab.preRequestScript?.trim() || tab.postResponseScript?.trim());
   document.getElementById('badgeScripts')?.classList.toggle('visible', hasScripts);
+
+  const dbQueriesCount =
+    (tab.preDbQueries || []).filter((q) => q && q.enabled !== false && String(q.query || '').trim()).length +
+    (tab.postDbQueries || []).filter((q) => q && q.enabled !== false && String(q.query || '').trim()).length;
+  const badgeDb = document.getElementById('badgeDb');
+  if (badgeDb) {
+    badgeDb.textContent = dbQueriesCount > 0 ? `(${dbQueriesCount})` : '';
+  }
 }
 
 
@@ -834,6 +947,7 @@ function renderAuthChainBox(tab) {
     renderEnvVarsTable,
     renderMultipartTable,
     renderAssertionsTable,
+    renderDbQueriesTable,
     renderActiveRequest,
     renderActiveBadges,
     renderAuthChainBox,

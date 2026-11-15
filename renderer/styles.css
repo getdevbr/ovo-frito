@@ -1543,6 +1543,15 @@ body {
   flex-shrink: 0;
 }
 
+/* Painéis de abas dentro de modais (ex.: Configurações) */
+.cfg-pane {
+  display: none;
+}
+
+.cfg-pane.active {
+  display: block;
+}
+
 /* Ícone PNG ajustado do Ovo Frito (egg.png) */
 .brand-logo-img {
   width: 34px;
