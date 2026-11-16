@@ -84,7 +84,7 @@
   }
 
   function switchEnv() {
-    app()?.openEnvModal?.();
+    app()?.openProfileModal?.();
   }
 
   const COMMANDS = [
@@ -97,7 +97,7 @@
     { id: 'tab.close', title: 'Fechar aba', category: 'Abas', defaultKeys: 'Ctrl+W', run: () => { const a = app(); const t = a?.getActiveTab?.(); if (a && t) a.closeTab(t.id); } },
     { id: 'tab.next', title: 'Próxima aba', category: 'Abas', defaultKeys: 'Ctrl+Tab', run: () => cycleTab(1) },
     { id: 'tab.prev', title: 'Aba anterior', category: 'Abas', defaultKeys: 'Ctrl+Shift+Tab', run: () => cycleTab(-1) },
-    { id: 'env.switch', title: 'Trocar Environment', category: 'Geral', defaultKeys: 'Ctrl+E', run: switchEnv },
+    { id: 'env.switch', title: 'Trocar Profile', category: 'Geral', defaultKeys: 'Ctrl+E', run: switchEnv },
     { id: 'palette.open', title: 'Command Palette', category: 'Geral', defaultKeys: 'Ctrl+K', run: () => app()?.openCommandPalette?.() },
     { id: 'shortcuts.help', title: 'Folha de atalhos', category: 'Geral', defaultKeys: 'Ctrl+/', run: () => showShortcutsHelp() },
     { id: 'layout.toggleSidebar', title: 'Alternar sidebar', category: 'Geral', defaultKeys: 'Ctrl+B', run: toggleSidebar }

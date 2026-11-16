@@ -1,27 +1,32 @@
 
-function getActiveEnvironment() {
-  return state.environments.find((e) => e.id === state.settings.activeEnvironmentId) || null;
+/**
+ * Profiles — entidade única de variáveis/ambiente do app.
+ * Cada Profile guarda suas próprias variáveis, conexão de banco,
+ * contorno colorido da requisição e travas de segurança.
+ * Não existe mais a camada "Environment": o Profile é o contexto ativo.
+ */
+function getActiveProfile() {
+  const list = Array.isArray(state.profiles) ? state.profiles : [];
+  return list.find((p) => p.id === state.settings?.activeProfileId) || list[0] || null;
 }
 
 
-/**
- * Normaliza e retorna a configuração de Profile e Contorno de um Environment.
- * O usuário cria seus próprios profiles livremente (sem profiles default como dev/homol/prod)
- * e escolhe se cada um possui contorno colorido na requisição ou sem contorno customizado.
- */
-function ensureEnvProfileStructure(env) {
-  if (!env) return null;
-  if (!Array.isArray(env.customProfiles)) {
-    env.customProfiles = [];
+function ensureProfileStructure(profile) {
+  if (!profile) return null;
+  if (!Array.isArray(profile.variables)) {
+    profile.variables = [];
   }
-  if (!env.profileVariables || typeof env.profileVariables !== 'object') {
-    env.profileVariables = {};
+  if (profile.borderColor === undefined) {
+    profile.borderColor = '';
   }
-  if (env.borderColor === undefined) {
-    env.borderColor = '';
+  if (profile.isProduction === undefined) {
+    profile.isProduction = false;
   }
-  if (!env.database || typeof env.database !== 'object') {
-    env.database = {
+  if (profile.confirmDestructive === undefined) {
+    profile.confirmDestructive = false;
+  }
+  if (!profile.database || typeof profile.database !== 'object') {
+    profile.database = {
       enabled: false,
       client: 'postgres',
       connectionString: '',
@@ -33,30 +38,58 @@ function ensureEnvProfileStructure(env) {
       ssl: false
     };
   }
-  // Remove valores legados fixos ('dev', 'homol', 'prod', 'custom') caso não sejam profiles criados pelo usuário
-  if (env.profile && !env.customProfiles.some((cp) => cp.id === env.profile)) {
-    env.profile = '';
-  }
-  if (!env.profile) {
-    env.profile = '';
-  }
-  return env;
+  return profile;
 }
 
-function resolveActiveDbConnection(env = getActiveEnvironment()) {
-  if (!env) return null;
-  ensureEnvProfileStructure(env);
-  let dbCfg = env.database;
-  if (env.profile) {
-    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
-    if (cp && cp.database && cp.database.enabled) {
-      dbCfg = cp.database;
-    }
+
+function createProfile(name = '') {
+  const profile = {
+    id: uid('prof'),
+    name: name || `Profile ${state.profiles.length + 1}`,
+    borderColor: '',
+    isProduction: false,
+    confirmDestructive: false,
+    database: {
+      enabled: false,
+      client: 'postgres',
+      connectionString: '',
+      host: '127.0.0.1',
+      port: 5432,
+      user: 'postgres',
+      password: '',
+      database: ':memory:',
+      ssl: false
+    },
+    variables: []
+  };
+  state.profiles.push(profile);
+  return profile;
+}
+
+
+function getProfileMeta(profile) {
+  if (!profile) {
+    return { label: '', icon: '⚪', borderColor: '', hasContour: false };
   }
+  ensureProfileStructure(profile);
+  const color = profile.borderColor || '';
+  return {
+    label: profile.name || '',
+    icon: color ? '🎨' : '🏷️',
+    borderColor: color,
+    hasContour: Boolean(color)
+  };
+}
+
+
+function resolveActiveDbConnection(profile = getActiveProfile()) {
+  if (!profile) return null;
+  ensureProfileStructure(profile);
+  const dbCfg = profile.database;
   if (!dbCfg || !dbCfg.enabled) return null;
   return {
     enabled: true,
-    envId: env.id,
+    profileId: profile.id,
     client: interpolateVariables(String(dbCfg.client || 'postgres')).trim().toLowerCase(),
     connectionString: interpolateVariables(String(dbCfg.connectionString || '')),
     host: interpolateVariables(String(dbCfg.host || '127.0.0.1')),
@@ -69,93 +102,36 @@ function resolveActiveDbConnection(env = getActiveEnvironment()) {
 }
 
 
-function getEnvProfileMeta(env) {
-  if (!env) {
-    return { profileKey: '', label: '', icon: '⚪', borderColor: '', hasContour: false };
-  }
-  ensureEnvProfileStructure(env);
-  const customProf = (env.customProfiles || []).find((cp) => cp.id === env.profile);
-  if (customProf) {
-    const color = customProf.borderColor || '';
-    return {
-      profileKey: customProf.id,
-      label: customProf.name,
-      icon: color ? '🎨' : '🏷️',
-      borderColor: color,
-      hasContour: Boolean(color)
-    };
-  }
-  const baseColor = env.borderColor || '';
-  return {
-    profileKey: '',
-    label: '',
-    icon: baseColor ? '🎨' : '🌐',
-    borderColor: baseColor,
-    hasContour: Boolean(baseColor)
-  };
-}
-
-
-function switchEnvironmentActiveProfile(env, nextProfileKey, explicitColor = undefined) {
-  if (!env) return;
-  ensureEnvProfileStructure(env);
-  const prevKey = env.profile || '__base__';
-
-  // Salva variáveis atuais no mapa do profile anterior
-  env.profileVariables[prevKey] = structuredClone(env.variables || []);
-
-  const validNext = (env.customProfiles || []).some((cp) => cp.id === nextProfileKey) ? nextProfileKey : '';
-  env.profile = validNext;
-  const targetKey = validNext || '__base__';
-
-  const cp = (env.customProfiles || []).find((x) => x.id === validNext);
-  if (cp) {
-    if (explicitColor !== undefined) {
-      cp.borderColor = explicitColor;
-    }
-    env.borderColor = cp.borderColor || '';
-  } else if (explicitColor !== undefined) {
-    env.borderColor = explicitColor;
-  }
-
-  // Se o novo profile já tiver variáveis próprias salvas, carrega; caso contrário clona as variáveis atuais
-  if (Array.isArray(env.profileVariables[targetKey]) && env.profileVariables[targetKey].length > 0) {
-    env.variables = structuredClone(env.profileVariables[targetKey]);
-  } else {
-    env.profileVariables[targetKey] = structuredClone(env.variables || []);
-  }
-}
-
-
-function applyActiveEnvProfileContour() {
+function applyActiveProfileContour() {
   const workbench = document.querySelector('.workbench');
   const badge = document.getElementById('reqProfileContourBadge');
-  const quickSelect = document.getElementById('envProfileQuickSelect');
-  const quickColor = document.getElementById('envQuickColorPicker');
-  const env = getActiveEnvironment();
-  const meta = getEnvProfileMeta(env);
+  const quickSelect = document.getElementById('profileSelect');
+  const quickColor = document.getElementById('profileColorPicker');
+  const profile = getActiveProfile();
+  const meta = getProfileMeta(profile);
 
-  // Sincroniza seletor rápido de Profile na Topbar (apenas profiles criados pelo usuário)
+  // Sincroniza seletor rápido de Profile na Topbar
   if (quickSelect) {
-    quickSelect.innerHTML = `<option value="">Sem Profile</option>`;
-    if (env && Array.isArray(env.customProfiles)) {
-      env.customProfiles.forEach((cp) => {
+    quickSelect.innerHTML = '';
+    if (Array.isArray(state.profiles)) {
+      state.profiles.forEach((p) => {
+        const m = getProfileMeta(p);
         const opt = document.createElement('option');
-        opt.value = cp.id;
-        opt.textContent = `${cp.borderColor ? '🎨' : '🏷️'} ${cp.name}`;
+        opt.value = p.id;
+        opt.textContent = `${m.borderColor ? '🎨' : '🏷️'} ${p.name}`;
         quickSelect.appendChild(opt);
       });
     }
     const createOpt = document.createElement('option');
     createOpt.value = '__create__';
-    createOpt.textContent = '+ Criar Profile...';
+    createOpt.textContent = '+ Novo Profile...';
     quickSelect.appendChild(createOpt);
 
-    quickSelect.value = env ? meta.profileKey : '';
+    quickSelect.value = profile ? profile.id : '';
   }
 
   if (quickColor) {
-    if (env && meta.hasContour && meta.borderColor) {
+    if (profile && meta.hasContour && meta.borderColor) {
       quickColor.classList.remove('hidden');
       quickColor.value = meta.borderColor;
     } else {
@@ -165,7 +141,7 @@ function applyActiveEnvProfileContour() {
 
   if (!workbench) return;
 
-  if (env && meta.hasContour && meta.borderColor) {
+  if (profile && meta.hasContour && meta.borderColor) {
     workbench.classList.add('has-req-profile-contour');
     workbench.style.setProperty('--req-profile-border-color', meta.borderColor);
     workbench.style.setProperty('--req-profile-tint', `${meta.borderColor}24`);
@@ -173,10 +149,8 @@ function applyActiveEnvProfileContour() {
       badge.classList.remove('hidden');
       badge.style.backgroundColor = meta.borderColor;
       badge.style.borderColor = meta.borderColor;
-      badge.textContent = meta.label ? `${meta.icon} ${meta.label}` : `${meta.icon} ${env.name}`;
-      badge.title = meta.label
-        ? `Environment "${env.name}" • Profile "${meta.label}" (${meta.borderColor})`
-        : `Environment "${env.name}" (${meta.borderColor})`;
+      badge.textContent = `${meta.icon} ${meta.label || 'Profile'}`;
+      badge.title = `Profile "${meta.label}" (${meta.borderColor})`;
     }
   } else {
     workbench.classList.remove('has-req-profile-contour');
@@ -219,25 +193,13 @@ function findCachedResponseByRequestRef(reqRef) {
 }
 
 
-function isActiveProfileConfirmDestructive(env) {
-  if (!env) return false;
-  ensureEnvProfileStructure(env);
-  if (env.profile) {
-    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
-    if (cp) return Boolean(cp.confirmDestructive);
-  }
-  return Boolean(env.confirmDestructive);
+function isActiveProfileConfirmDestructive(profile = getActiveProfile()) {
+  return Boolean(profile?.confirmDestructive);
 }
 
 
-function isActiveProfileProduction(env) {
-  if (!env) return false;
-  ensureEnvProfileStructure(env);
-  if (env.profile) {
-    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
-    if (cp) return Boolean(cp.isProduction);
-  }
-  return Boolean(env.isProduction);
+function isActiveProfileProduction(profile = getActiveProfile()) {
+  return Boolean(profile?.isProduction);
 }
 
 
@@ -245,12 +207,11 @@ function getAllAvailableVariables(tab = getActiveTab()) {
   const list = [];
   const seen = new Set();
 
-  // 1. Variáveis do Environment / Profile ativo
-  const env = getActiveEnvironment();
-  if (env && Array.isArray(env.variables)) {
-    const meta = getEnvProfileMeta(env);
-    const scopeName = meta.label ? `Profile: ${meta.label}` : `Env: ${env.name}`;
-    for (const v of env.variables) {
+  // 1. Variáveis do Profile ativo
+  const profile = getActiveProfile();
+  if (profile && Array.isArray(profile.variables)) {
+    const scopeName = `Profile: ${profile.name || 'Ativo'}`;
+    for (const v of profile.variables) {
       if (v && v.enabled !== false && v.key && !seen.has(v.key.trim())) {
         seen.add(v.key.trim());
         list.push({
@@ -303,7 +264,7 @@ function getAllAvailableVariables(tab = getActiveTab()) {
 
 
 /**
- * Interpola variáveis do Environment/Profile `{{var}}` + Variáveis da Collection + Iteração do Runner
+ * Interpola variáveis do Profile `{{var}}` + Variáveis da Collection + Iteração do Runner
  * + Referências entre Requisições/Sessões `{{@NomeRequest.json.token}}`
  * + Variáveis Dinâmicas (`{{$uuid}}`, `{{$timestamp}}`, `{{$isoDate}}`, `{{$randomCPF}}`, `{{$randomCNPJ}}`, etc.)
  */
@@ -324,10 +285,10 @@ function interpolateVariables(str) {
     }
   }
 
-  // 2. Variáveis do Environment / Profile ativo
-  const env = getActiveEnvironment();
-  if (env && Array.isArray(env.variables)) {
-    for (const v of env.variables) {
+  // 2. Variáveis do Profile ativo
+  const profile = getActiveProfile();
+  if (profile && Array.isArray(profile.variables)) {
+    for (const v of profile.variables) {
       if (v && v.enabled !== false && v.key) {
         map[v.key.trim()] = v.value ?? '';
       }
@@ -428,8 +389,8 @@ function isVariableDefined(rawKey) {
     if (col && listHasEnabledKey(col.variables, k)) return true;
   }
 
-  const env = getActiveEnvironment();
-  if (env && listHasEnabledKey(env.variables, k)) return true;
+  const profile = getActiveProfile();
+  if (profile && listHasEnabledKey(profile.variables, k)) return true;
 
   return false;
 }
@@ -438,32 +399,32 @@ function isVariableDefined(rawKey) {
 /* ============================================================================
  * US-10: Executor de Pre-request & Post-response Scripts (Compatível com `pm.*`)
  * ============================================================================ */
-function getOrInitActiveEnvForScripts() {
-  let env = getActiveEnvironment();
-  if (!env) {
-    if (state.environments.length === 0) {
-      env = { id: uid('env'), name: 'Default Environment', variables: [] };
-      state.environments.push(env);
+function getOrInitActiveProfileForScripts() {
+  let profile = getActiveProfile();
+  if (!profile) {
+    if (!Array.isArray(state.profiles) || state.profiles.length === 0) {
+      profile = createProfile('Padrão');
     } else {
-      env = state.environments[0];
+      profile = state.profiles[0];
     }
-    state.settings.activeEnvironmentId = env.id;
+    state.settings.activeProfileId = profile.id;
   }
-  return env;
+  ensureProfileStructure(profile);
+  return profile;
 }
 
 (function (root) {
   const api = {
-    getActiveEnvironment,
-    ensureEnvProfileStructure,
+    getActiveProfile,
+    ensureProfileStructure,
+    createProfile,
+    getProfileMeta,
     resolveActiveDbConnection,
-    getEnvProfileMeta,
-    switchEnvironmentActiveProfile,
-    applyActiveEnvProfileContour,
+    applyActiveProfileContour,
     findCachedResponseByRequestRef,
     getAllAvailableVariables,
     interpolateVariables,
-    getOrInitActiveEnvForScripts,
+    getOrInitActiveProfileForScripts,
     isActiveProfileConfirmDestructive,
     isActiveProfileProduction,
     isVariableDefined
@@ -473,7 +434,6 @@ function getOrInitActiveEnvForScripts() {
   } else {
     root.CDO = root.CDO || {};
     root.CDO.core = root.CDO.core || {};
-    root.CDO.core.env = api;
+    root.CDO.core.profiles = api;
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);
-

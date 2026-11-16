@@ -26,8 +26,8 @@
     const a = app();
     if (!a || !item) return { ok: false };
 
-    // confirmação para Collection e Environment inteiros
-    if ((type === 'collection' || type === 'environment') && typeof confirm === 'function') {
+    // confirmação para Collection e Profile inteiros
+    if ((type === 'collection' || type === 'profile') && typeof confirm === 'function') {
       const ok = await confirm({ type, item, count: type === 'collection' ? (item.items || []).length : (item.variables || []).length });
       if (!ok) return { ok: false, cancelled: true };
     }
@@ -43,13 +43,9 @@
     } else if (type === 'collection') {
       const idx = a.state.collections.findIndex((c) => c.id === item.id);
       if (idx !== -1) a.state.collections.splice(idx, 1);
-    } else if (type === 'environment') {
-      const idx = a.state.environments.findIndex((e) => e.id === item.id);
-      if (idx !== -1) a.state.environments.splice(idx, 1);
-    } else if (type === 'profile') {
-      const env = a.state.environments.find((e) => e.id === origin.environmentId);
-      const idx = env ? (env.customProfiles || []).findIndex((cp) => cp.id === item.id) : -1;
-      if (idx !== -1) env.customProfiles.splice(idx, 1);
+    } else if (type === 'profile' || type === 'environment') {
+      const idx = a.state.profiles.findIndex((p) => p.id === item.id);
+      if (idx !== -1) a.state.profiles.splice(idx, 1);
     } else {
       return { ok: false, reason: 'unsupported-type' };
     }
@@ -60,7 +56,7 @@
     diskEntries().unshift(diskEntry);
     await persistTrash();
 
-    const persistKey = type === 'environment' || type === 'profile' ? 'environments' : 'collections';
+    const persistKey = type === 'profile' || type === 'environment' ? 'profiles' : 'collections';
     await app()?.persistStore?.(persistKey);
     app()?.renderSidebar?.();
     app()?.renderAll?.();

@@ -230,7 +230,9 @@ function parseOvoFile(rawText) {
         return {
           kind: 'workspace',
           collections: Array.isArray(parsed.collections) ? parsed.collections : [],
-          environments: Array.isArray(parsed.environments) ? parsed.environments : []
+          profiles: Array.isArray(parsed.profiles)
+            ? parsed.profiles
+            : Array.isArray(parsed.environments) ? parsed.environments : []
         };
       }
       if (parsed.type === 'request' && parsed.request) {

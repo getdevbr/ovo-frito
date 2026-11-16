@@ -197,14 +197,14 @@ function exportWorkspaceAsOvo() {
         history: sanitizeHistoryForExport(Array.isArray(it.history) ? it.history : [])
       }))
     })),
-    environments: (state.environments || []).map((env) => ({
-      ...env,
-      database: env.database ? { ...env.database, password: '', connectionString: isSecretLikeValue(env.database.connectionString) ? '' : env.database.connectionString } : undefined,
-      variables: (Array.isArray(env.variables) ? env.variables : []).map((v) => (v?.secret ? { ...v, value: '' } : v))
+    profiles: (state.profiles || []).map((profile) => ({
+      ...profile,
+      database: profile.database ? { ...profile.database, password: '', connectionString: isSecretLikeValue(profile.database.connectionString) ? '' : profile.database.connectionString } : undefined,
+      variables: (Array.isArray(profile.variables) ? profile.variables : []).map((v) => (v?.secret ? { ...v, value: '' } : v))
     })),
     settings: {
       theme: state.settings?.theme || 'dark',
-      activeEnvironmentId: state.settings?.activeEnvironmentId || '',
+      activeProfileId: state.settings?.activeProfileId || '',
       ignoreCertErrors: state.settings?.ignoreCertErrors ?? false,
       timeoutMs: state.settings?.timeoutMs || 30000
     }

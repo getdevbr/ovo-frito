@@ -15,12 +15,12 @@ const MODULES = {
     'generateRandomCelular', 'generateRandomName', 'generateRandomEmail',
     'persistStore', 'saveSessionState', 'applyTheme'
   ],
-  'env.js': [
-    'getActiveEnvironment', 'ensureEnvProfileStructure', 'getEnvProfileMeta',
-    'switchEnvironmentActiveProfile', 'applyActiveEnvProfileContour',
+  'profiles.js': [
+    'getActiveProfile', 'ensureProfileStructure', 'createProfile', 'getProfileMeta',
+    'resolveActiveDbConnection', 'applyActiveProfileContour',
     'findCachedResponseByRequestRef', 'isActiveProfileConfirmDestructive',
     'getAllAvailableVariables', 'interpolateVariables',
-    'getOrInitActiveEnvForScripts'
+    'getOrInitActiveProfileForScripts'
   ],
   'tabs.js': [
     'createBlankTab', 'getActiveTab', 'contextMenuTargetTabId',
@@ -66,7 +66,7 @@ const MODULES = {
     'runCollectionSequentially'
   ],
   'modals.js': [
-    'editingEnvId', 'syncEnvModalProfileControls', 'openEnvModal',
+    'editingProfileId', 'syncProfileModalControls', 'openProfileModal',
     'renderCookieJarModal', 'ensureNetworkSettings',
     'renderNetworkStatusIndicators', 'openNetworkModal',
     'editingCollectionConfigId', 'syncCollectionConfigAuthFields',

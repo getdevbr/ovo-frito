@@ -40,7 +40,7 @@ Variável de ambiente `CDO_DATA_DIR` isola o diretório de dados (ver `docs/MANU
 
 ## 3. Interface principal
 
-- **Sidebar:** Collections, Environments, Histórico, Settings. Busca rápida, filtro, abas laterais, arrastar-e-soltar de pastas/requests.
+- **Sidebar:** Collections, Profiles, Lixeira. Busca rápida, filtro, abas laterais, arrastar-e-soltar de pastas/requests.
 - **Editor de requisição:** nome, método, URL com preview interpolado, Params, Headers, Body, Assertions, Captures, Scripts.
 - **Painel de resposta:** status, tempo, tamanho, headers, cookies, corpo com viewers dedicados, waterfall de latência.
 - **Command Palette:** `Ctrl+K` (ou `Cmd+K`) para buscar requests/commands.
@@ -89,14 +89,14 @@ Auth também pode ser definido no nível da Collection e herdado pelas requests.
 
 ## 5. Variáveis e geradores
 
-- Variáveis por Collection e por Environment (`{{nome}}`), com flag **Secret** que mascara o valor (`••••`) e zera em exports.
-- Variáveis de ambiente ativas via Profiles de Environment; trava anti-acidente para métodos destrutivos em profiles marcados.
+- Variáveis por Collection e por Profile (`{{nome}}`), com flag **Secret** que mascara o valor (`••••`) e zera em exports.
+- Variáveis de ambiente ativas via Profiles; trava anti-acidente para métodos destrutivos em profiles marcados.
 - Autocomplete de variáveis nos campos de texto (`{{`).
 - Geradores dinâmicos `{{$random...}}`: UUID v4, timestamp, ISO date, nomes, e-mail, CPF/CNPJ válidos, Celular BR.
 - Geradores fintech/ERP BR: `{{$randomPixPayload}}`, `{{$randomBoleto}}`, `{{$randomCartaoCredito}}` (Luhn), `{{$randomPlacaMercosul}}`, `{{$randomCEP}}`, `{{$randomInscricaoEstadualSP}}`, CRC16.
 - `.env` import/export para variáveis de ambiente.
-- **Profiles** por Environment com variáveis próprias e contorno visual na requisição.
-- **Comparar Profile/Env** (`⚖️`): executa a mesma request em dois Profiles/Environments e mostra diff A/B das respostas.
+- **Profiles** com variáveis próprias, contorno visual na requisição e conexão de banco dedicada.
+- **Comparar A/B** (`⚖️`): executa a mesma request em dois Profiles e mostra diff A/B das respostas.
 
 ---
 
@@ -191,10 +191,10 @@ Opções: `--var KEY=VALUE`, `--env-file <path>`, `--report json|junit`, `--outp
 - **Favoritos e recentes**: `★` por requisição; seções no topo da sidebar e primeiro no `Ctrl+K`; últimas 10 em `settings.recents`.
 - **Busca na resposta**: campo 🔎 no corpo com contagem, `▲/▼` e destaque; Pretty limitado a 2 MB.
 - **Histórico pesquisável**: filtro por texto/status/método/host + modo "Global" agregando todas as abas.
-- **Produção**: marcar Environment/Profile como Produção exibe faixa vermelha, botão "Enviar em PROD" e confirmação obrigatória com URL interpolada.
+- **Produção**: marcar Profile como Produção exibe faixa vermelha, botão "Enviar em PROD" e confirmação obrigatória com URL interpolada.
 - **Comparar respostas**: comando `⇄ Comparar Resposta com outra Aba` no `Ctrl+K`.
 - **Drag-and-drop**: soltar `.ovo`/`.bru`/cURL/OpenAPI na janela importa direto.
-- **Variáveis com dica**: autocomplete `Ctrl+Espaço` mostra escopo (Env/Profile/Collection/Dinâmica/Cofre) e valor mascarado.
+- **Variáveis com dica**: autocomplete `Ctrl+Espaço` mostra escopo (Profile/Collection/Dinâmica/Cofre) e valor mascarado.
 - **Zoom**: `Ctrl + / - / 0` persiste em `settings.uiZoom`.
 
 ## 14. Limitações conhecidas
@@ -243,7 +243,7 @@ npx electron-builder --mac     # .dmg
 
 ### Diretório de dados portátil
 
-Em modo empacotado, os JSON (`collections.json`, `environments.json`, `settings.json`, `cookies.json`, `sessions.json`, `history.json`) ficam em `./data/` ao lado do executável. Para isolar dados (testes, múltiplos perfis):
+Em modo empacotado, os JSON (`collections.json`, `profiles.json`, `settings.json`, `cookies.json`, `sessions.json`, `history.json`) ficam em `./data/` ao lado do executável. Para isolar dados (testes, múltiplos perfis):
 
 ```powershell
 $env:CDO_DATA_DIR = "C:\caminho\custom\data"

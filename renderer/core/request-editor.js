@@ -182,7 +182,7 @@ function renderKeyValueTable(containerId, rows, onChange, placeholders = { key: 
 }
 
 
-/* Tabela de Variáveis do Environment (com suporte a 🔒 Secret) */
+/* Tabela de Variáveis do Profile (com suporte a 🔒 Secret) */
 function renderEnvVarsTable(rows) {
   const container = document.getElementById('envVarsTable');
   container.innerHTML = '';
@@ -190,7 +190,7 @@ function renderEnvVarsTable(rows) {
   if (!Array.isArray(rows) || rows.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-hint';
-    empty.textContent = 'Nenhuma variável configurada neste Environment.';
+    empty.textContent = 'Nenhuma variável configurada neste Profile.';
     container.appendChild(empty);
     return;
   }
@@ -643,8 +643,8 @@ function buildVarScopes() {
     const col = state.collections.find((c) => c.id === tab.collectionId);
     if (col) scopes.push({ name: `Collection: ${col.name}`, vars: col.variables || [] });
   }
-  const env = getActiveEnvironment();
-  if (env) scopes.push({ name: `Environment: ${env.name}`, vars: env.variables || [] });
+  const profile = getActiveProfile();
+  if (profile) scopes.push({ name: `Profile: ${profile.name}`, vars: profile.variables || [] });
   if (state.runnerIterationVars && typeof state.runnerIterationVars === 'object') {
     scopes.push({
       name: 'Runner',

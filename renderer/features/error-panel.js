@@ -16,7 +16,7 @@
     'settings.timeout': () => window.CDO.app?.openNetworkModal?.(),
     'vault.unlock': () => window.CDO?.vault?.requestUnlock?.(),
     'vault.open': () => window.CDO?.vault?.open?.() || window.CDO?.vault?.requestUnlock?.(),
-    'vars.define': () => window.CDO?.toast?.show?.({ message: 'Defina a variável no Environment ou Collection.', type: 'info' }),
+    'vars.define': () => window.CDO?.toast?.show?.({ message: 'Defina a variável no Profile ou Collection.', type: 'info' }),
     'response.details': () => document.querySelector('[data-res-tab="headers"]')?.click()
   };
 

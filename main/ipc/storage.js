@@ -3,9 +3,9 @@
 function loadAllStores(storage, dataDir) {
   return {
     collections: storage.readStore('collections') || [],
-    environments: storage.readStore('environments') || [],
+    profiles: storage.readStore('profiles') || [],
     history: storage.readStore('history') || [],
-    settings: storage.readStore('settings') || { theme: 'dark', activeEnvironmentId: '' },
+    settings: storage.readStore('settings') || { theme: 'dark', activeProfileId: '' },
     sessions: storage.readStore('sessions') || { tabs: [], activeTabId: null, responseCache: {} },
     cookies: storage.readStore('cookies') || [],
     trash: storage.readStore('trash') || [],

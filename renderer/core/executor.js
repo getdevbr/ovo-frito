@@ -134,12 +134,12 @@ async function executeDeclarativeDbSteps(tab, phase = 'pre', response = null, pa
   const scriptConsole = createScriptConsoleProxy(tab, phase === 'post' ? 'Post-DB' : 'Pre-DB');
 
   if (!conn) {
-    const msg = 'Conexão de banco de dados não configurada ou desativada no Environment atual.';
+    const msg = 'Conexão de banco de dados não configurada ou desativada no Profile atual.';
     scriptConsole.error(msg);
     assertionOutcomes.push({
       source: `DB (${phase})`,
       operator: '=>',
-      target: 'Conexão ativa no Environment',
+      target: 'Conexão ativa no Profile',
       actual: msg,
       passed: false
     });
@@ -194,7 +194,7 @@ async function executeDeclarativeDbSteps(tab, phase = 'pre', response = null, pa
 
     scriptConsole.log(`[${stepName}] SQL OK (${normalizedRes.rowCount} row(s), ${normalizedRes.durationMs}ms): ${sql}`);
 
-    // Capturas da query para o Environment (formato "rows.0.id -> user_id; rowCount -> total_rows" ou "rows.0.id=user_id")
+    // Capturas da query para o Profile (formato "rows.0.id -> user_id; rowCount -> total_rows" ou "rows.0.id=user_id")
     const capturesRaw = String(step.captures || '').trim();
     if (capturesRaw) {
       const pairs = capturesRaw.split(/[;\n]+/).map((s) => s.trim()).filter(Boolean);
@@ -206,7 +206,7 @@ async function executeDeclarativeDbSteps(tab, phase = 'pre', response = null, pa
         if (!srcPath || !targetVarName) continue;
         const extracted = getByPath(normalizedRes, srcPath);
         if (extracted !== undefined) {
-          const env = getOrInitActiveEnvForScripts();
+          const env = getOrInitActiveProfileForScripts();
           const strVal = typeof extracted === 'object' && extracted !== null ? JSON.stringify(extracted) : String(extracted);
           const existingVar = (env.variables || []).find((v) => v.key === targetVarName);
           if (existingVar) {
@@ -225,7 +225,7 @@ async function executeDeclarativeDbSteps(tab, phase = 'pre', response = null, pa
   }
 
   if (envUpdated) {
-    await persistStore('environments');
+    await persistStore('profiles');
     await persistStore('settings');
   }
 
@@ -300,23 +300,14 @@ async function evaluateAssertionsAndCaptures(tab, response) {
     const extracted = resolveResponseSourceValue(response, parsedJson, sourcePath, tab.dbContext);
 
     if (extracted !== undefined) {
-      let env = getActiveEnvironment();
-      if (!env) {
-        if (state.environments.length === 0) {
-          env = { id: uid('env'), name: 'Default Environment', variables: [] };
-          state.environments.push(env);
-        } else {
-          env = state.environments[0];
-        }
-        state.settings.activeEnvironmentId = env.id;
-      }
+      const profile = getOrInitActiveProfileForScripts();
       const strVal = typeof extracted === 'object' ? JSON.stringify(extracted) : String(extracted);
-      const existingVar = env.variables.find((v) => v.key === targetVarName);
+      const existingVar = profile.variables.find((v) => v.key === targetVarName);
       if (existingVar) {
         existingVar.value = strVal;
         existingVar.enabled = true;
       } else {
-        env.variables.push({ key: targetVarName, value: strVal, enabled: true, secret: /token|secret|key|pass/i.test(targetVarName) });
+        profile.variables.push({ key: targetVarName, value: strVal, enabled: true, secret: /token|secret|key|pass/i.test(targetVarName) });
       }
       envUpdated = true;
       captureOutcomes.push({ source: sourcePath, varName: targetVarName, value: strVal, ok: true });
@@ -326,7 +317,7 @@ async function evaluateAssertionsAndCaptures(tab, response) {
   }
 
   if (envUpdated) {
-    await persistStore('environments');
+    await persistStore('profiles');
     await persistStore('settings');
   }
 
@@ -391,7 +382,7 @@ async function executePreRequestScript(tab) {
   const code = (tab.preRequestScript || '').trim();
   if (!code) return;
   let envDirty = false;
-  const env = getOrInitActiveEnvForScripts();
+  const env = getOrInitActiveProfileForScripts();
   const dbConnection = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection(env) : null;
 
   const result = await IPC.invoke('pm:script:run', {
@@ -435,7 +426,7 @@ async function executePreRequestScript(tab) {
   }
 
   if (envDirty) {
-    await persistStore('environments');
+    await persistStore('profiles');
     await persistStore('settings');
   }
 }
@@ -448,7 +439,7 @@ async function executePostResponseScript(tab, response, parsedJson) {
   if (!code) return { assertions, captures };
 
   let envDirty = false;
-  const env = getOrInitActiveEnvForScripts();
+  const env = getOrInitActiveProfileForScripts();
   const dbConnection = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection(env) : null;
 
   const result = await IPC.invoke('pm:script:run', {
@@ -516,7 +507,7 @@ async function executePostResponseScript(tab, response, parsedJson) {
   }
 
   if (envDirty) {
-    await persistStore('environments');
+    await persistStore('profiles');
     await persistStore('settings');
   }
 
@@ -527,7 +518,7 @@ async function executePostResponseScript(tab, response, parsedJson) {
 /* Execução de uma Requisição (usada tanto pelo botão Send quanto pelo Collection Runner) */
 async function executeTabRequestObject(tab) {
   const latestStore = await IPC.invoke('pm:storage:loadAll');
-  if (latestStore.environments) state.environments = latestStore.environments;
+  if (latestStore.profiles) state.profiles = latestStore.profiles;
   if (latestStore.cookies) state.cookies = latestStore.cookies;
   if (latestStore.sessions?.responseCache) {
     state.sessions.responseCache = {
@@ -756,10 +747,10 @@ async function sendActiveRequest() {
   if (!tab || tab.loading) return;
 
   const method = (tab.method || 'GET').toUpperCase();
-  const env = getActiveEnvironment();
+  const env = getActiveProfile();
   if (isActiveProfileProduction(env)) {
-    const meta = getEnvProfileMeta(env);
-    const ctxName = meta.label ? `Profile "${meta.label}" (${env.name})` : `Environment "${env.name}"`;
+    const meta = getProfileMeta(env);
+    const ctxName = meta.label || env.name || 'Profile';
     const resolvedUrl = interpolateVariables(tab.url || '');
     const msg = `🚨 PRODUÇÃO ATIVA em ${ctxName}\n\nDeseja realmente enviar ${method} para:\n${resolvedUrl} ?`;
     const confirmed = window.CDO?.dialog?.confirm
@@ -770,8 +761,8 @@ async function sendActiveRequest() {
       return;
     }
   } else if (isActiveProfileConfirmDestructive(env) && ['DELETE', 'PUT', 'PATCH', 'POST'].includes(method)) {
-    const meta = getEnvProfileMeta(env);
-    const ctxName = meta.label ? `Profile "${meta.label}" (${env.name})` : `Environment "${env.name}"`;
+    const meta = getProfileMeta(env);
+    const ctxName = meta.label || env.name || 'Profile';
     const resolvedUrl = interpolateVariables(tab.url || '');
     const confirmed = window.confirm(
       `🛡️ Trava Anti-Acidente Ativa em ${ctxName}\n\nDeseja realmente enviar a requisição ${method} para:\n${resolvedUrl} ?`

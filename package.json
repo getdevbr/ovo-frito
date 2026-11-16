@@ -1,7 +1,7 @@
 {
   "name": "ovo-frito",
   "productName": "Ovo Frito — 100% Local-First API Client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Ovo Frito — Cliente HTTP portátil 100% Local-First com exportação nativa .ovo",
   "author": {
     "name": "GetDevBR",

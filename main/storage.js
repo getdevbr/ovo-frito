@@ -53,15 +53,25 @@ function getDefaultCollections() {
   ];
 }
 
-function getDefaultEnvironments() {
+function getDefaultProfiles() {
   return [
     {
-      id: 'env_default',
-      name: 'JSONPlaceholder (Local)',
-      profile: '',
+      id: 'prof_default',
+      name: 'Padrão',
       borderColor: '',
-      customProfiles: [],
-      profileVariables: {},
+      isProduction: false,
+      confirmDestructive: false,
+      database: {
+        enabled: false,
+        client: 'postgres',
+        connectionString: '',
+        host: '127.0.0.1',
+        port: 5432,
+        user: 'postgres',
+        password: '',
+        database: ':memory:',
+        ssl: false
+      },
       variables: [
         { key: 'base_url', value: 'https://jsonplaceholder.typicode.com', enabled: true, secret: false },
         { key: 'api_token', value: 'demo-secret-token', enabled: true, secret: true }
@@ -77,7 +87,7 @@ function createStorage({ dataDir } = {}) {
 
   const files = {
     collections: path.join(resolvedDataDir, 'collections.json'),
-    environments: path.join(resolvedDataDir, 'environments.json'),
+    profiles: path.join(resolvedDataDir, 'profiles.json'),
     history: path.join(resolvedDataDir, 'history.json'),
     settings: path.join(resolvedDataDir, 'settings.json'),
     sessions: path.join(resolvedDataDir, 'sessions.json'),
@@ -92,11 +102,11 @@ function createStorage({ dataDir } = {}) {
 
     const defaults = {
       collections: getDefaultCollections(),
-      environments: getDefaultEnvironments(),
+      profiles: getDefaultProfiles(),
       history: [],
       settings: {
         theme: 'dark',
-        activeEnvironmentId: 'env_default',
+        activeProfileId: 'prof_default',
         timeoutMs: 30000
       },
       sessions: {

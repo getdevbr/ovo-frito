@@ -12,8 +12,13 @@
     const meta = document.getElementById('responseMeta');
     const tab = app()?.getActiveTab?.();
     const timings = tab?.response?.timings;
-    if (!meta || !timings) return;
+    if (!meta) return;
+    const showDetails = Boolean(app()?.state?.settings?.showTimingDetails);
     let pill = meta.querySelector('[data-waterfall]');
+    if (!showDetails || !timings) {
+      pill?.remove();
+      return;
+    }
     if (!pill) {
       pill = document.createElement('span');
       pill.className = 'meta-pill';

@@ -43,16 +43,12 @@
 
     <div class="topbar-actions">
       <div class="env-selector-wrap">
-        <label for="envSelect" class="sr-only">Environment</label>
-        <select id="envSelect" class="env-select" title="Selecionar Environment ativo">
-          <option value="">No Environment</option>
+        <label for="profileSelect" class="sr-only">Profile</label>
+        <select id="profileSelect" class="env-select" title="Selecionar Profile ativo">
+          <option value="">Profile</option>
         </select>
-        <select id="envProfileQuickSelect" class="env-profile-select" title="Selecionar ou criar Profile para este Environment">
-          <option value="">Sem Profile</option>
-          <option value="__create__">+ Criar Profile...</option>
-        </select>
-        <input id="envQuickColorPicker" type="color" class="env-color-picker hidden" value="#f75f5f" title="Alterar cor do contorno da requisição" />
-        <button id="btnManageEnv" class="btn-icon" title="Editar variáveis e profiles deste Environment">✎</button>
+        <input id="profileColorPicker" type="color" class="env-color-picker hidden" value="#f75f5f" title="Alterar cor do contorno da requisição" />
+        <button id="btnManageProfile" class="btn-icon" title="Editar variáveis e configurações do Profile ativo">✎</button>
       </div>
 
       <div class="cdo-dropdown">
@@ -75,8 +71,8 @@
         <button class="sidebar-nav-btn active" data-sidebar-tab="collections" title="Collections">
           <span>📁 Collections</span>
         </button>
-        <button class="sidebar-nav-btn" data-sidebar-tab="environments" title="Environments &amp; Profiles">
-          <span>🌐 Environments</span>
+        <button class="sidebar-nav-btn" data-sidebar-tab="profiles" title="Profiles">
+          <span>🏷️ Profiles</span>
         </button>
         <button class="sidebar-nav-btn" data-sidebar-tab="trash" title="Lixeira">
           <span>🗑 Lixeira</span>
@@ -96,13 +92,13 @@
           <div id="collectionsList" class="tree-list"></div>
         </div>
 
-        <!-- Environments Panel -->
-        <div id="sidebar-environments" class="sidebar-content">
+        <!-- Profiles Panel -->
+        <div id="sidebar-profiles" class="sidebar-content">
           <div class="sidebar-toolbar">
-            <span class="sidebar-heading">Environments &amp; Profiles</span>
-            <button id="btnNewEnvironment" class="btn-small">+ Env</button>
+            <span class="sidebar-heading">Profiles</span>
+            <button id="btnNewProfile" class="btn-small">+ Profile</button>
           </div>
-          <div id="environmentsList" class="tree-list"></div>
+          <div id="profilesList" class="tree-list"></div>
         </div>
 
         <!-- Trash Panel (U-08) -->
@@ -143,7 +139,7 @@
 
       <!-- Active Request Bar -->
       <div class="request-header">
-        <span id="reqProfileContourBadge" class="req-profile-contour-badge hidden" title="Profile do Environment Ativo"></span>
+        <span id="reqProfileContourBadge" class="req-profile-contour-badge hidden" title="Profile Ativo"></span>
         <input id="reqNameInput" type="text" class="req-name-input" placeholder="Nome da requisição..." />
         <div class="request-header-actions">
           <button id="btnSaveToCollection" class="btn-secondary" title="Salvar na Collection (Ctrl+S)">💾 Salvar</button>
@@ -152,7 +148,7 @@
           <div class="cdo-dropdown">
             <button id="btnMenuReqMore" class="btn-secondary" type="button" data-dropdown-toggle="reqMoreMenuSlot" title="Mais ações da requisição (Comparar, Load Test, GraphQL, Ferramentas)">⚡ Avançado ▾</button>
             <div id="reqMoreMenuSlot" class="cdo-menu-popover align-left hidden">
-              <button id="btnOpenCompareProfileModal" class="btn-small" type="button" title="Comparar resposta desta requisição entre dois Profiles ou Environments (Diff A/B)">⚖️ Comparar A/B</button>
+              <button id="btnOpenCompareProfileModal" class="btn-small" type="button" title="Comparar resposta desta requisição entre dois Profiles (Diff A/B)">⚖️ Comparar A/B</button>
             </div>
           </div>
         </div>
@@ -489,7 +485,7 @@
             <div class="inner-resizer-vertical" title="Arraste para redimensionar Assertions / Captura"></div>
             <div class="tests-col">
               <div class="pane-header">
-                <span>🔗 Capturar para Environment</span>
+                <span>🔗 Capturar para Profile</span>
                 <button id="btnAddCapture" class="btn-small">+ Captura</button>
               </div>
               <div id="capturesTable" class="kv-table"></div>
@@ -669,18 +665,18 @@
     <span id="statusMessage">Pronto — Ovo Frito</span>
   </footer>
 
-  <!-- Modal de Edição de Environment (+ Segredos e .env) -->
-  <div id="envModal" class="modal-backdrop hidden">
+  <!-- Modal de Edição de Profile (+ Segredos e .env) -->
+  <div id="profileModal" class="modal-backdrop hidden">
     <div class="modal modal-large">
       <div class="modal-header">
-        <h3 id="envModalTitle">🌐 Gerenciar Environment Local &amp; Segredos (`.env`)</h3>
-        <button id="btnCloseEnvModal" class="btn-icon">✕</button>
+        <h3 id="profileModalTitle">🏷️ Gerenciar Profile &amp; Variáveis (`.env`)</h3>
+        <button id="btnCloseProfileModal" class="btn-icon">✕</button>
       </div>
       <div class="modal-body">
         <div class="chain-grid">
           <div>
-            <label>Nome do Environment:</label>
-            <input id="envNameInput" type="text" class="text-input" placeholder="Ex: Produção / Homologação / Dev" />
+            <label>Nome do Profile:</label>
+            <input id="profileNameInput" type="text" class="text-input" placeholder="Ex: Produção / Homologação / Dev" />
           </div>
           <div class="chain-actions" style="align-self: flex-end;">
             <label class="btn-small" style="cursor:pointer;">
@@ -691,37 +687,19 @@
           </div>
         </div>
 
-        <!-- Criação e Configuração Livre de Profiles da Env e Contorno Visual da Requisição -->
+        <!-- Contorno Visual da Requisição e Travas do Profile -->
         <div class="chain-box" style="margin-top: 4px; max-width: 100%;">
-          <div class="chain-box-title">🎨 Profiles do Environment &amp; Contorno da Requisição (Criação Livre)</div>
+          <div class="chain-box-title">🎨 Contorno da Requisição &amp; Travas de Segurança</div>
+
           <div class="chain-grid">
             <div>
-              <label for="envModalProfileSelect">Profile Ativo:</label>
-              <div style="display:flex; gap:6px; align-items:center;">
-                <select id="envModalProfileSelect" class="select-input" style="flex:1;">
-                  <option value="">Sem Profile (Base do Environment)</option>
-                </select>
-                <button id="btnDeleteCustomEnvProfile" class="btn-small btn-danger-ghost hidden" title="Excluir o Profile selecionado">✕ Excluir Profile</button>
-              </div>
-            </div>
-            <div>
-              <label for="envNewProfileNameInput">Criar Novo Profile (ou renomear atual):</label>
-              <div style="display:flex; gap:6px; align-items:center;">
-                <input id="envNewProfileNameInput" type="text" class="text-input" style="flex:1;" placeholder="Digite o nome do Profile..." />
-                <button id="btnAddCustomEnvProfile" class="btn-small" title="Criar um novo Profile com este nome">+ Criar Profile</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="chain-grid" style="margin-top: 4px;">
-            <div>
-              <label for="envModalContourModeSelect">Contorno em Volta da Requisição:</label>
+              <label for="profileModalContourModeSelect">Contorno em Volta da Requisição:</label>
               <div style="display:flex; gap:8px; align-items:center;">
-                <select id="envModalContourModeSelect" class="select-input" style="flex:1;">
+                <select id="profileModalContourModeSelect" class="select-input" style="flex:1;">
                   <option value="none">Sem contorno customizado</option>
                   <option value="custom">Com contorno colorido (Escolher cor ao lado)</option>
                 </select>
-                <input id="envModalBorderColorInput" type="color" class="env-color-picker hidden" value="#ef4444" title="Escolher cor do contorno da requisição" />
+                <input id="profileModalBorderColorInput" type="color" class="env-color-picker hidden" value="#ef4444" title="Escolher cor do contorno da requisição" />
               </div>
             </div>
             <div style="display:flex; align-items:flex-end;">
@@ -732,22 +710,22 @@
           </div>
 
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--text-primary); margin-top:6px;">
-            <input id="envConfirmDestructiveCheckbox" type="checkbox" style="accent-color:var(--accent); width:14px; height:14px;" />
-            <span>🛡️ <strong>Trava Anti-Acidente:</strong> Exigir confirmação antes de disparar <code>DELETE</code>, <code>PUT</code>, <code>PATCH</code> ou <code>POST</code> quando este Profile / Environment estiver ativo</span>
+            <input id="profileConfirmDestructiveCheckbox" type="checkbox" style="accent-color:var(--accent); width:14px; height:14px;" />
+            <span>🛡️ <strong>Trava Anti-Acidente:</strong> Exigir confirmação antes de disparar <code>DELETE</code>, <code>PUT</code>, <code>PATCH</code> ou <code>POST</code> quando este Profile estiver ativo</span>
           </label>
 
           <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:#fca5a5; margin-top:4px;">
-            <input id="envIsProdCheckbox" type="checkbox" style="accent-color:#ef4444; width:14px; height:14px;" />
+            <input id="profileIsProdCheckbox" type="checkbox" style="accent-color:#ef4444; width:14px; height:14px;" />
             <span>🚨 <strong>Ambiente de Produção:</strong> faixa vermelha no topo, botão vira "Enviar em PROD" e <strong>todo</strong> envio exige confirmação (URL interpolada exibida)</span>
           </label>
         </div>
 
-        <!-- Conexão de Banco de Dados do Environment (PostgreSQL, MySQL/MariaDB, SQLite) -->
+        <!-- Conexão de Banco de Dados do Profile (PostgreSQL, MySQL/MariaDB, SQLite) -->
         <div class="chain-box" style="margin-top: 6px; max-width: 100%;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
             <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; color:var(--text-primary); margin:0;">
               <input id="envDbEnabledCheckbox" type="checkbox" style="accent-color:var(--accent); width:14px; height:14px;" />
-              <span>🗄️ <strong>Conexão de Banco de Dados neste Environment</strong> (PostgreSQL, MySQL/MariaDB ou SQLite — usada em Pre/Post SQL e <code>pm.db.query</code>)</span>
+              <span>🗄️ <strong>Conexão de Banco de Dados neste Profile</strong> (PostgreSQL, MySQL/MariaDB ou SQLite — usada em Pre/Post SQL e <code>pm.db.query</code>)</span>
             </label>
             <div style="display:flex; align-items:center; gap:6px;">
               <span id="envDbTestStatusBadge" class="badge"></span>
@@ -801,14 +779,14 @@
         </div>
 
         <div class="pane-header" style="margin-top:6px;">
-          <span id="envVarsPaneHeaderTitle">Variáveis do Profile / Environment (marque 🔒 Secret para ocultar valores sensíveis)</span>
+          <span id="envVarsPaneHeaderTitle">Variáveis do Profile (marque 🔒 Secret para ocultar valores sensíveis)</span>
           <button id="btnAddEnvVar" class="btn-small">+ Variável</button>
         </div>
         <div id="envVarsTable" class="kv-table"></div>
       </div>
       <div class="modal-footer">
-        <button id="btnDeleteEnv" class="btn-small btn-danger-ghost">Excluir Environment</button>
-        <button id="btnSaveEnvModal" class="btn-send">Salvar Environment</button>
+        <button id="btnDeleteProfile" class="btn-small btn-danger-ghost">Excluir Profile</button>
+        <button id="btnSaveProfileModal" class="btn-send">Salvar Profile</button>
       </div>
     </div>
   </div>
@@ -1042,7 +1020,7 @@
           type="text"
           class="text-input"
           autocomplete="off"
-          placeholder="Digite para buscar requisições, trocar Environment/Profile, layout ou ações..."
+          placeholder="Digite para buscar requisições, trocar Profile, layout ou ações..."
           style="border:none; background:transparent; font-size:14px; box-shadow:none;"
         />
         <button id="btnCloseCommandPalette" class="btn-icon">✕</button>
@@ -1112,6 +1090,10 @@
               <label for="netTimeoutMsInput" style="margin:0; min-width:170px;">Timeout da Requisição (ms):</label>
               <input id="netTimeoutMsInput" type="number" min="1000" step="1000" class="text-input" style="max-width:160px;" value="30000" />
             </div>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-primary); margin-bottom:10px;">
+              <input id="netShowTimingDetailsCheckbox" type="checkbox" style="accent-color:var(--accent); width:15px; height:15px;" />
+              <span><strong>Exibir detalhes de tempo na resposta</strong> (DNS, TCP, TLS, TTFB e Download — por padrão só o tempo total é exibido)</span>
+            </label>
             <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; color:var(--text-primary); margin-bottom:10px;">
               <input id="netProxyEnabledCheckbox" type="checkbox" style="accent-color:var(--accent); width:15px; height:15px;" />
               <span><strong>Habilitar Proxy customizado para envio das requisições</strong></span>
@@ -1203,7 +1185,7 @@
             </p>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button id="btnOpenCookiesModal" type="button" class="btn-small" title="Gerenciar Cookie Jar Local (./data/cookies.json)">🍪 Gerenciar Cookies <span id="badgeCookieJar"></span></button>
-              <button id="btnExportWorkspaceOvo" type="button" class="btn-small" title="Exportar Workspace Completo (Collections, Environments, Profiles e Configurações) em um único arquivo .ovo">🥚 Exportar Workspace (.ovo)</button>
+              <button id="btnExportWorkspaceOvo" type="button" class="btn-small" title="Exportar Workspace Completo (Collections, Profiles e Configurações) em um único arquivo .ovo">🥚 Exportar Workspace (.ovo)</button>
             </div>
           </div>
         </div>
@@ -1218,11 +1200,11 @@
     </div>
   </div>
 
-  <!-- Modal US-50: Comparador A/B entre Profiles / Environments -->
+  <!-- Modal US-50: Comparador A/B entre Profiles -->
   <div id="compareProfileModal" class="modal-backdrop hidden">
     <div class="modal modal-large">
       <div class="modal-header">
-        <h3>⚖️ Comparador A/B entre Profiles &amp; Environments</h3>
+        <h3>⚖️ Comparador A/B entre Profiles</h3>
         <button id="btnCloseCompareProfileModal" class="btn-icon">✕</button>
       </div>
       <div class="modal-body">
@@ -1333,7 +1315,7 @@
         <div class="env-profile-config-card">
           <h4 style="margin:0 0 6px 0; color:var(--accent);">🥚 1. Visão Geral &amp; Filosofia 100% Local-First</h4>
           <p style="margin:0; color:var(--text-secondary);">
-            O <strong>Ovo Frito</strong> é um cliente de APIs moderno, portátil e <strong>100% offline</strong>. Nenhum dado sai da sua máquina para nuvens de terceiros: todas as suas Collections, Environments, Profiles, Histórico, Cookies e Configurações ficam salvos localmente na pasta <code>./data/</code> e podem ser exportados no formato nativo <strong><code>.ovo</code></strong>.
+            O <strong>Ovo Frito</strong> é um cliente de APIs moderno, portátil e <strong>100% offline</strong>. Nenhum dado sai da sua máquina para nuvens de terceiros: todas as suas Collections, Profiles, Histórico, Cookies e Configurações ficam salvos localmente na pasta <code>./data/</code> e podem ser exportados no formato nativo <strong><code>.ovo</code></strong>.
           </p>
         </div>
 
@@ -1343,24 +1325,25 @@
             <div class="res-header-row"><div class="res-header-key"><code>Ctrl + Espaço</code></div><div>Abre o <strong>Autocomplete de Variáveis (<code>{{...}}</code>)</strong> em qualquer campo de texto (URL, Params, Headers, Auth, Body) com navegação por setas (<code>↑</code>/<code>↓</code>) e <code>Enter</code>.</div></div>
             <div class="res-header-row"><div class="res-header-key"><code>Ctrl + Enter</code></div><div>Dispara a requisição ativa (<strong>Send</strong>).</div></div>
             <div class="res-header-row"><div class="res-header-key"><code>Ctrl + S</code></div><div>Salva as alterações da aba atual na Collection vinculada (remove o indicador <code>●</code> de pendência).</div></div>
-            <div class="res-header-row"><div class="res-header-key"><code>Ctrl + K</code></div><div>Abre a <strong>Command Palette</strong> (busca rápida de requisições, troca de Profile/Environment, layout e ações).</div></div>
+            <div class="res-header-row"><div class="res-header-key"><code>Ctrl + K</code></div><div>Abre a <strong>Command Palette</strong> (busca rápida de requisições, troca de Profile, layout e ações).</div></div>
           </div>
         </div>
 
         <div class="env-profile-config-card" style="margin-top:8px;">
-          <h4 style="margin:0 0 6px 0; color:var(--accent);">🎨 3. Environments, Profiles Livres, Contorno Colorido &amp; Trava Anti-Acidente</h4>
+          <h4 style="margin:0 0 6px 0; color:var(--accent);">🎨 3. Profiles, Contorno Colorido &amp; Trava Anti-Acidente</h4>
           <ul style="margin:0; padding-left:18px; color:var(--text-secondary);">
-            <li><strong>Criação Livre de Profiles:</strong> Clique no botão <code>✎</code> ao lado do Environment na barra superior para criar quantos Profiles quiser (ex: <em>Local</em>, <em>Staging</em>, <em>Cliente X</em>, <em>Produção</em>), sem nomes engessados.</li>
+            <li><strong>Profiles:</strong> Cada Profile é um contexto completo de variáveis (ex: <em>Local</em>, <em>Staging</em>, <em>Cliente X</em>, <em>Produção</em>). Crie quantos quiser na aba <strong>Profiles</strong> da barra lateral ou pelo seletor <code>🏷️</code> no topo — sempre há um Profile ativo.</li>
+            <li><strong>Variáveis do Profile:</strong> Clique no Profile na barra lateral (ou no botão <code>✎</code> do topo) para abrir o menu exclusivo de variáveis, com suporte a segredos <code>🔒</code> e importação/exportação <code>.env</code>.</li>
             <li><strong>Contorno Visual na Requisição:</strong> Cada Profile pode ter uma cor personalizada que contorna todo o painel da requisição para você sempre saber em qual ambiente está disparando.</li>
             <li><strong>Trava Anti-Acidente (<code>🛡️</code>):</strong> Marque a opção no Profile para exigir confirmação antes de disparar métodos destrutivos (<code>DELETE</code>, <code>PUT</code>, <code>PATCH</code>, <code>POST</code>).</li>
-            <li><strong>Comparador A/B (<code>⚖️ Comparar Profile/Env</code>):</strong> Dispara a mesma requisição em dois Profiles/Environments e exibe o Diff Visual lado a lado.</li>
+            <li><strong>Comparador A/B (<code>⚖️ Comparar</code>):</strong> Dispara a mesma requisição em dois Profiles e exibe o Diff Visual lado a lado.</li>
           </ul>
         </div>
 
         <div class="env-profile-config-card" style="margin-top:8px;">
           <h4 style="margin:0 0 6px 0; color:var(--accent);">🔧 4. Variáveis, Geradores Dinâmicos BR 🇧🇷 &amp; Request Chaining</h4>
           <p style="margin:0 0 6px 0; color:var(--text-secondary);">
-            Pressione <strong><code>Ctrl + Espaço</code></strong> ou digite <strong><code>{{</code></strong> em qualquer campo para listar e inserir variáveis. Ordem de precedência: <code>Data File (Runner) &gt; Profile Ativo &gt; Environment &gt; Collection</code>.
+            Pressione <strong><code>Ctrl + Espaço</code></strong> ou digite <strong><code>{{</code></strong> em qualquer campo para listar e inserir variáveis. Ordem de precedência: <code>Data File (Runner) &gt; Profile Ativo &gt; Collection</code>.
           </p>
           <div class="res-headers-grid">
             <div class="res-header-row"><div class="res-header-key"><code>{{$uuid}}</code> / <code>{{$guid}}</code></div><div>Gera um UUID v4 aleatório a cada disparo.</div></div>
@@ -1418,7 +1401,7 @@
   <script src="lib/history-search.js"></script>
   <!-- Core modules: ordem load-bearing. state primeiro; layout (init) por último. -->
   <script src="core/state.js"></script>
-  <script src="core/env.js"></script>
+  <script src="core/profiles.js"></script>
   <script src="core/tabs.js"></script>
   <script src="core/importer.js"></script>
   <script src="core/exporter.js"></script>

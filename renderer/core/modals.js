@@ -1,33 +1,25 @@
 
-/* Modal de Environment (+ Profiles, Contorno da Requisição e .env Import/Export) */
-let editingEnvId = null;
+/* Modal de Profile (Variáveis, Segredos .env, Contorno, DB e Travas) */
+let editingProfileId = null;
 
 
-function syncEnvModalProfileControls(env) {
-  if (!env) return;
-  ensureEnvProfileStructure(env);
-  const meta = getEnvProfileMeta(env);
+function syncProfileModalControls(profile) {
+  if (!profile) return;
+  ensureProfileStructure(profile);
+  const meta = getProfileMeta(profile);
 
-  const profSelect = document.getElementById('envModalProfileSelect');
-  const delProfBtn = document.getElementById('btnDeleteCustomEnvProfile');
-  const contourSelect = document.getElementById('envModalContourModeSelect');
-  const colorInput = document.getElementById('envModalBorderColorInput');
+  const contourSelect = document.getElementById('profileModalContourModeSelect');
+  const colorInput = document.getElementById('profileModalBorderColorInput');
   const previewBanner = document.getElementById('envProfilePreviewBanner');
   const varsHeader = document.getElementById('envVarsPaneHeaderTitle');
+  const modalTitle = document.getElementById('profileModalTitle');
+  const delBtn = document.getElementById('btnDeleteProfile');
 
-  if (profSelect) {
-    profSelect.innerHTML = `<option value="">Sem Profile (Base do Environment)</option>`;
-    (env.customProfiles || []).forEach((cp) => {
-      const opt = document.createElement('option');
-      opt.value = cp.id;
-      opt.textContent = `${cp.borderColor ? '🎨' : '🏷️'} ${cp.name}${cp.borderColor ? ` (${cp.borderColor})` : ' (Sem contorno)'}`;
-      profSelect.appendChild(opt);
-    });
-    profSelect.value = meta.profileKey || '';
+  if (modalTitle) {
+    modalTitle.textContent = `🏷️ Profile "${profile.name || 'Sem nome'}" — Variáveis & Configurações`;
   }
-
-  if (delProfBtn) {
-    delProfBtn.classList.toggle('hidden', !meta.profileKey);
+  if (delBtn) {
+    delBtn.classList.toggle('hidden', state.profiles.length <= 1);
   }
 
   const c = (meta.borderColor || '').toLowerCase();
@@ -40,16 +32,16 @@ function syncEnvModalProfileControls(env) {
     colorInput.classList.toggle('hidden', !c);
   }
 
-  const chkDestructive = document.getElementById('envConfirmDestructiveCheckbox');
+  const chkDestructive = document.getElementById('profileConfirmDestructiveCheckbox');
   if (chkDestructive) {
-    chkDestructive.checked = isActiveProfileConfirmDestructive(env);
+    chkDestructive.checked = Boolean(profile.confirmDestructive);
   }
-  const chkProd = document.getElementById('envIsProdCheckbox');
+  const chkProd = document.getElementById('profileIsProdCheckbox');
   if (chkProd) {
-    chkProd.checked = isActiveProfileProduction(env);
+    chkProd.checked = Boolean(profile.isProduction);
   }
 
-  const activeContextLabel = meta.label ? `Profile "${meta.label}"` : `Environment "${env.name}" (Sem Profile)`;
+  const activeContextLabel = `Profile "${profile.name || ''}"`;
 
   if (previewBanner) {
     if (c) {
@@ -66,12 +58,10 @@ function syncEnvModalProfileControls(env) {
   }
 
   if (varsHeader) {
-    varsHeader.textContent = meta.label
-      ? `Variáveis do Profile [${meta.label}] em "${env.name}" (marque 🔒 Secret para ocultar valores sensíveis)`
-      : `Variáveis de "${env.name}" (marque 🔒 Secret para ocultar valores sensíveis)`;
+    varsHeader.textContent = `Variáveis do Profile "${profile.name || ''}" (marque 🔒 Secret para ocultar valores sensíveis)`;
   }
 
-  const dbCfg = env.database || {
+  const dbCfg = profile.database || {
     enabled: false,
     client: 'postgres',
     connectionString: '',
@@ -106,29 +96,15 @@ function syncEnvModalProfileControls(env) {
 }
 
 
-function openEnvModal(envId) {
-  let env = state.environments.find((e) => e.id === envId);
-  if (!env) {
-    env = {
-      id: uid('env'),
-      name: 'Novo Environment',
-      profile: '',
-      borderColor: '',
-      customProfiles: [],
-      profileVariables: {},
-      variables: [{ key: 'base_url', value: 'https://jsonplaceholder.typicode.com', enabled: true, secret: false }]
-    };
-    state.environments.push(env);
-    state.settings.activeEnvironmentId = env.id;
-  }
-  ensureEnvProfileStructure(env);
-  editingEnvId = env.id;
-  document.getElementById('envNameInput').value = env.name;
-  const newProfInput = document.getElementById('envNewProfileNameInput');
-  if (newProfInput) newProfInput.value = '';
-  syncEnvModalProfileControls(env);
-  renderEnvVarsTable(env.variables);
-  document.getElementById('envModal').classList.remove('hidden');
+function openProfileModal(profileId) {
+  const profile = state.profiles.find((p) => p.id === profileId) || getActiveProfile();
+  if (!profile) return;
+  ensureProfileStructure(profile);
+  editingProfileId = profile.id;
+  document.getElementById('profileNameInput').value = profile.name || '';
+  syncProfileModalControls(profile);
+  renderEnvVarsTable(profile.variables);
+  document.getElementById('profileModal').classList.remove('hidden');
 }
 
 
@@ -194,10 +170,13 @@ function renderCookieJarModal() {
 
 function ensureNetworkSettings() {
   if (!state.settings || typeof state.settings !== 'object') {
-    state.settings = { theme: 'dark', activeEnvironmentId: '' };
+    state.settings = { theme: 'dark', activeProfileId: '' };
   }
   if (state.settings.ignoreCertErrors === undefined) {
     state.settings.ignoreCertErrors = false;
+  }
+  if (state.settings.showTimingDetails === undefined) {
+    state.settings.showTimingDetails = false;
   }
   if (!state.settings.timeoutMs) {
     state.settings.timeoutMs = 30000;
@@ -265,6 +244,7 @@ function openNetworkModal(tabName) {
   const net = ensureNetworkSettings();
   const chkCert = document.getElementById('netIgnoreCertErrorsCheckbox');
   const timeoutIn = document.getElementById('netTimeoutMsInput');
+  const timingChk = document.getElementById('netShowTimingDetailsCheckbox');
   const chkMtls = document.getElementById('netMtlsEnabledCheckbox');
   const mtlsName = document.getElementById('netMtlsCertFileName');
   const mtlsPass = document.getElementById('netMtlsPassphraseInput');
@@ -279,6 +259,7 @@ function openNetworkModal(tabName) {
 
   if (chkCert) chkCert.checked = Boolean(net.ignoreCertErrors);
   if (timeoutIn) timeoutIn.value = Number(net.timeoutMs) || 30000;
+  if (timingChk) timingChk.checked = Boolean(net.showTimingDetails);
   if (chkMtls) chkMtls.checked = Boolean(net.mtls?.enabled);
   if (mtlsName) mtlsName.textContent = net.mtls?.fileName || 'Nenhum certificado carregado';
   if (mtlsPass) mtlsPass.value = net.mtls?.passphrase || '';
@@ -403,33 +384,19 @@ function getCommandPaletteActions(query = '') {
     });
   });
 
-  // 2. Environments e Profiles criados pelo usuário
-  state.environments.forEach((env) => {
+  // 2. Profiles criados pelo usuário
+  (state.profiles || []).forEach((profile) => {
+    const meta = getProfileMeta(profile);
     actions.push({
-      category: 'Environment',
-      label: `🌐 Ativar Environment: ${env.name} (Sem Profile)`,
-      sub: `${(env.variables || []).length} variáveis`,
+      category: 'Profile',
+      label: `${meta.borderColor ? '🎨' : '🏷️'} Ativar Profile: ${profile.name}`,
+      sub: `${(profile.variables || []).length} variáveis${meta.borderColor ? ` • Contorno ${meta.borderColor}` : ''}`,
       run: async () => {
-        state.settings.activeEnvironmentId = env.id;
-        switchEnvironmentActiveProfile(env, '');
-        await persistStore('environments');
+        state.settings.activeProfileId = profile.id;
+        await persistStore('profiles');
         await persistStore('settings');
         renderAll();
       }
-    });
-    (env.customProfiles || []).forEach((cp) => {
-      actions.push({
-        category: `Profile (${env.name})`,
-        label: `${cp.borderColor ? '🎨' : '🏷️'} Ativar Profile "${cp.name}" em ${env.name}`,
-        sub: cp.borderColor ? `Contorno ${cp.borderColor}` : 'Sem contorno',
-        run: async () => {
-          state.settings.activeEnvironmentId = env.id;
-          switchEnvironmentActiveProfile(env, cp.id);
-          await persistStore('environments');
-          await persistStore('settings');
-          renderAll();
-        }
-      });
     });
   });
 
@@ -623,15 +590,10 @@ function initDevToolboxModal() {
 
 
 function compareContextOptions() {
-  const opts = [];
-  state.environments.forEach((env) => {
-    ensureEnvProfileStructure(env);
-    opts.push({ value: `${env.id}::`, label: `${env.name} — Base` });
-    (env.customProfiles || []).forEach((cp) => {
-      opts.push({ value: `${env.id}::${cp.id}`, label: `${env.name} — ${cp.name}` });
-    });
-  });
-  return opts;
+  return (state.profiles || []).map((p) => ({
+    value: p.id,
+    label: `${getProfileMeta(p).borderColor ? '🎨' : '🏷️'} ${p.name} — ${(p.variables || []).length} vars`
+  }));
 }
 
 
@@ -661,31 +623,18 @@ async function runCompareAB() {
     if (metaBar) metaBar.innerHTML = '<span class="empty-hint">Selecione dois contextos diferentes.</span>';
     return;
   }
-  const parseCtx = (v) => {
-    const [envId, profileKey] = String(v).split('::');
-    return { envId, profileKey: profileKey || '' };
-  };
-  const ctxA = parseCtx(selA.value);
-  const ctxB = parseCtx(selB.value);
-  const originalEnvId = state.settings.activeEnvironmentId;
-  const originalEnv = state.environments.find((e) => e.id === originalEnvId) || null;
-  const originalProfile = originalEnv ? originalEnv.profile || '' : '';
+  const originalProfileId = state.settings.activeProfileId;
 
-  const runInContext = async (ctx) => {
-    state.settings.activeEnvironmentId = ctx.envId;
-    const env = state.environments.find((e) => e.id === ctx.envId);
-    if (env) {
-      ensureEnvProfileStructure(env);
-      switchEnvironmentActiveProfile(env, ctx.profileKey);
-    }
-    applyActiveEnvProfileContour();
+  const runInContext = async (profileId) => {
+    state.settings.activeProfileId = profileId;
+    applyActiveProfileContour();
     const res = await executeTabRequestObject(tab);
     return res;
   };
 
   try {
     if (metaBar) metaBar.innerHTML = '<span class="empty-hint">Executando A/B...</span>';
-    const [resA, resB] = [await runInContext(ctxA), await runInContext(ctxB)];
+    const [resA, resB] = [await runInContext(selA.value), await runInContext(selB.value)];
     let bodyA = resA?.body || '';
     let bodyB = resB?.body || '';
     try { bodyA = JSON.stringify(JSON.parse(bodyA), null, 2); } catch {}
@@ -710,12 +659,8 @@ async function runCompareAB() {
   } catch (err) {
     if (metaBar) metaBar.innerHTML = `<span class="empty-hint">Erro na comparação: ${escapeHtml(err.message || err)}</span>`;
   } finally {
-    state.settings.activeEnvironmentId = originalEnvId;
-    if (originalEnv) {
-      ensureEnvProfileStructure(originalEnv);
-      switchEnvironmentActiveProfile(originalEnv, originalProfile);
-    }
-    applyActiveEnvProfileContour();
+    state.settings.activeProfileId = originalProfileId;
+    applyActiveProfileContour();
     renderAll();
   }
 }
@@ -814,8 +759,9 @@ function initCompareProfileModal() {
 
 (function (root) {
   const api = {
-    syncEnvModalProfileControls,
-    openEnvModal,
+    editingProfileId,
+    syncProfileModalControls,
+    openProfileModal,
     renderCookieJarModal,
     ensureNetworkSettings,
     renderNetworkStatusIndicators,

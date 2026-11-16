@@ -135,7 +135,7 @@ test('ui-full-suite: menus, toolbox, sidebar, editor, response e config', async 
     await expect(page.locator('#manualModal')).toBeHidden();
 
     // ===== 6. Sidebar =====
-    await page.click('[data-sidebar-tab="environments"]');
+    await page.click('[data-sidebar-tab="profiles"]');
     await page.click('[data-sidebar-tab="collections"]');
     await page.click('#btnNewCollection');
     await page.fill('#sidebarSearchInput', 'Collection');

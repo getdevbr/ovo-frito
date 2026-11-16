@@ -1,17 +1,7 @@
 
 /* Renderização da Sidebar (Collections c/ Pastas, Runner e Duplicação) */
 function renderSidebarCore() {
-  const envSelect = document.getElementById('envSelect');
-  envSelect.innerHTML = `<option value="">No Environment</option>`;
-  state.environments.forEach((env) => {
-    const meta = getEnvProfileMeta(env);
-    const opt = document.createElement('option');
-    opt.value = env.id;
-    opt.textContent = meta.label ? `${meta.icon} [${meta.label}] ${env.name}` : `${meta.icon} ${env.name}`;
-    if (env.id === state.settings.activeEnvironmentId) opt.selected = true;
-    envSelect.appendChild(opt);
-  });
-  applyActiveEnvProfileContour();
+  applyActiveProfileContour();
 
   const filterTerm = (state.sidebarFilter || '').trim().toLowerCase();
 
@@ -133,7 +123,7 @@ function renderSidebarCore() {
       titleSpan.style.textOverflow = 'ellipsis';
       titleSpan.style.whiteSpace = 'nowrap';
       titleSpan.title = 'Clique para expandir/recolher • Duplo-clique para renomear';
-      titleSpan.textContent = `${isCollapsed ? '📁' : '📂'} ${col.name} (${filteredItems.length})`;
+      titleSpan.textContent = `${isCollapsed ? '📁' : '📂'} ${col.name}`;
       titleSpan.addEventListener('click', () => {
         state.collapsedCollections[col.id] = !state.collapsedCollections[col.id];
         renderSidebar();
@@ -333,8 +323,7 @@ function renderSidebarCore() {
         const name = document.createElement('span');
         name.className = 'tree-item-title';
         name.title = 'Clique para abrir • Duplo-clique para renomear';
-        const reqHistCount = Array.isArray(item.history) && item.history.length > 0 ? ` (${item.history.length})` : '';
-        name.textContent = `${item.name || item.url}${reqHistCount}`;
+        name.textContent = `${item.name || item.url}`;
         name.addEventListener('dblclick', (e) => {
           e.stopPropagation();
           state.renamingRequestId = item.id;
@@ -418,45 +407,45 @@ function renderSidebarCore() {
     colList.appendChild(group);
   });
 
-  // Environments List na Sidebar
-  const envList = document.getElementById('environmentsList');
-  envList.innerHTML = '';
-  state.environments.forEach((env) => {
-    const meta = getEnvProfileMeta(env);
-    const row = document.createElement('div');
-    row.className = 'tree-item';
-    if (meta.hasContour && meta.borderColor) {
-      row.style.borderLeft = `3px solid ${meta.borderColor}`;
-    }
-    row.addEventListener('click', () => {
-      state.settings.activeEnvironmentId = env.id;
-      persistStore('settings');
-      renderAll();
-      openEnvModal(env.id);
-    });
-
-    const icon = document.createElement('span');
-    icon.textContent = env.id === state.settings.activeEnvironmentId ? meta.icon : '⚪';
-    row.appendChild(icon);
-
-    if (meta.label) {
-      const pill = document.createElement('span');
-      pill.className = 'env-tree-profile-pill';
-      pill.textContent = meta.label;
+  // Profiles List na Sidebar (menu exclusivo de variáveis via modal)
+  const profileList = document.getElementById('profilesList');
+  if (profileList) {
+    profileList.innerHTML = '';
+    (state.profiles || []).forEach((profile) => {
+      const meta = getProfileMeta(profile);
+      const row = document.createElement('div');
+      row.className = 'tree-item';
       if (meta.hasContour && meta.borderColor) {
-        pill.style.borderColor = meta.borderColor;
-        pill.style.color = meta.borderColor;
+        row.style.borderLeft = `3px solid ${meta.borderColor}`;
       }
-      row.appendChild(pill);
-    }
+      row.title = 'Clique para ativar e editar variáveis deste Profile';
+      row.addEventListener('click', () => {
+        state.settings.activeProfileId = profile.id;
+        persistStore('settings');
+        renderAll();
+        openProfileModal(profile.id);
+      });
 
-    const name = document.createElement('span');
-    name.className = 'tree-item-title';
-    name.textContent = `${env.name} (${(env.variables || []).length} vars)`;
+      const icon = document.createElement('span');
+      icon.textContent = profile.id === state.settings.activeProfileId ? meta.icon : '⚪';
+      row.appendChild(icon);
 
-    row.appendChild(name);
-    envList.appendChild(row);
-  });
+      if (profile.isProduction) {
+        const prodBadge = document.createElement('span');
+        prodBadge.className = 'badge';
+        prodBadge.style.color = '#f87171';
+        prodBadge.textContent = 'PROD';
+        row.appendChild(prodBadge);
+      }
+
+      const name = document.createElement('span');
+      name.className = 'tree-item-title';
+      name.textContent = `${profile.name} (${(profile.variables || []).length} vars)`;
+
+      row.appendChild(name);
+      profileList.appendChild(row);
+    });
+  }
 
   // History List na Sidebar (se presente)
   const histList = document.getElementById('historyList');
@@ -468,7 +457,7 @@ function renderSidebarCore() {
 
     if (histBanner) {
       histBanner.textContent = activeTab
-        ? `📌 ${activeTab.name || activeTab.url || 'Sem título'} (${reqHistory.length} execuções)`
+        ? `📌 ${activeTab.name || activeTab.url || 'Sem título'}`
         : 'Nenhuma requisição selecionada';
     }
 

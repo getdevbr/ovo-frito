@@ -72,11 +72,11 @@
           }));
         } catch {}
       }
-      const env = app.getActiveEnvironment?.();
+      const profile = app.getActiveProfile?.();
       const list = [];
-      for (const v of env?.variables || []) {
+      for (const v of profile?.variables || []) {
         if (v && v.enabled !== false && v.key) {
-          list.push({ key: v.key, value: v.secret ? '••••••' : String(v.value ?? ''), scope: 'Env' });
+          list.push({ key: v.key, value: v.secret ? '••••••' : String(v.value ?? ''), scope: 'Profile' });
         }
       }
       for (const g of window.CDO?.generatorsBr?.REGISTRY || []) {

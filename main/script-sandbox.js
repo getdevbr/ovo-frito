@@ -189,7 +189,7 @@ function buildSandboxEnv({ phase = 'pre', envVars = [], request = {}, response =
     },
     async query(sql, params = []) {
       if (typeof dbExecutor !== 'function') {
-        throw new Error('Executor de banco de dados não disponível ou nenhuma conexão ativa configurada no Environment.');
+        throw new Error('Executor de banco de dados não disponível ou nenhuma conexão ativa configurada no Profile.');
       }
       const safeSql = String(sql || '');
       const safeParams = Array.isArray(params) ? serializeForSandbox(params) : [];

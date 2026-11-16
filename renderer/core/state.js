@@ -46,12 +46,12 @@ const escapeHtml =
 
 const state = {
   collections: [],
-  environments: [],
+  profiles: [],
   history: [],
   cookies: [],
   settings: {
     theme: 'dark',
-    activeEnvironmentId: ''
+    activeProfileId: ''
   },
   sessions: {
     tabs: [],
@@ -76,7 +76,7 @@ if (sessionChannel) {
   sessionChannel.onmessage = async (ev) => {
     if (ev.data?.type === 'storage_updated') {
       const fresh = await IPC.invoke('pm:storage:loadAll');
-      if (fresh.environments) state.environments = fresh.environments;
+      if (fresh.profiles) state.profiles = fresh.profiles;
       if (fresh.sessions?.responseCache) state.sessions.responseCache = fresh.sessions.responseCache;
       if (fresh.cookies) state.cookies = fresh.cookies;
       if (fresh.settings) state.settings = fresh.settings;
@@ -164,7 +164,7 @@ function generateRandomEmail() {
 
 async function persistStore(key) {
   await IPC.invoke('pm:storage:save', { key, data: state[key] });
-  if (sessionChannel && ['environments', 'sessions', 'settings', 'cookies'].includes(key)) {
+  if (sessionChannel && ['profiles', 'sessions', 'settings', 'cookies'].includes(key)) {
     sessionChannel.postMessage({ type: 'storage_updated', key });
   }
   if (key === 'collections') {

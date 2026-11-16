@@ -1,6 +1,7 @@
 :root,
 [data-theme="dark"],
 .dark {
+  color-scheme: dark;
   /* shadcn/ui Semantic Tokens (Dark — Zinc / New York) */
   --background: #09090b;
   --foreground: #fafafa;
@@ -48,6 +49,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   /* shadcn/ui Semantic Tokens (Light — Zinc / New York) */
   --background: #ffffff;
   --foreground: #09090b;
@@ -255,7 +257,8 @@ body {
 .env-selector-wrap .env-profile-select,
 .env-selector-wrap .btn-icon {
   border: none;
-  background: transparent;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   box-shadow: none;
   height: 26px;
 }

@@ -3,7 +3,7 @@ function renderAll() {
   renderSidebar();
   renderTabsBar();
   renderActiveRequest();
-  applyActiveEnvProfileContour();
+  applyActiveProfileContour();
   renderNetworkStatusIndicators();
 }
 
@@ -478,10 +478,28 @@ async function init() {
   initUiChrome();
   const initialData = await IPC.invoke('pm:storage:loadAll');
   state.collections = initialData.collections || [];
-  state.environments = initialData.environments || [];
+  state.profiles = Array.isArray(initialData.profiles) ? initialData.profiles : [];
+  if (state.profiles.length === 0) {
+    state.profiles.push({
+      id: uid('prof'),
+      name: 'Padrão',
+      borderColor: '',
+      isProduction: false,
+      confirmDestructive: false,
+      database: {
+        enabled: false, client: 'postgres', connectionString: '',
+        host: '127.0.0.1', port: 5432, user: 'postgres',
+        password: '', database: ':memory:', ssl: false
+      },
+      variables: [{ key: 'base_url', value: 'https://jsonplaceholder.typicode.com', enabled: true, secret: false }]
+    });
+  }
   state.history = initialData.history || [];
   state.cookies = initialData.cookies || [];
-  state.settings = initialData.settings || { theme: 'dark', activeEnvironmentId: '' };
+  state.settings = initialData.settings || { theme: 'dark', activeProfileId: '' };
+  if (!state.settings.activeProfileId || !state.profiles.some((p) => p.id === state.settings.activeProfileId)) {
+    state.settings.activeProfileId = state.profiles[0].id;
+  }
   state.trash = Array.isArray(initialData.trash) ? initialData.trash : [];
   window.CDO?.favorites?.pruneOrphans?.();
 
@@ -1140,18 +1158,13 @@ async function init() {
     const expr = `{{@${reqRef}.${fieldPath}}}`;
     const resolvedVal = interpolateVariables(expr);
 
-    let env = getActiveEnvironment();
-    if (!env) {
-      env = state.environments[0] || { id: uid('env'), name: 'Default Environment', variables: [] };
-      if (!state.environments.includes(env)) state.environments.push(env);
-      state.settings.activeEnvironmentId = env.id;
-    }
-    const existing = env.variables.find((v) => v.key === 'api_token');
+    const profile = getOrInitActiveProfileForScripts();
+    const existing = profile.variables.find((v) => v.key === 'api_token');
     if (existing) {
       if (resolvedVal !== expr) existing.value = resolvedVal;
       existing.enabled = true;
     } else {
-      env.variables.push({ key: 'api_token', value: resolvedVal !== expr ? resolvedVal : '', enabled: true, secret: true });
+      profile.variables.push({ key: 'api_token', value: resolvedVal !== expr ? resolvedVal : '', enabled: true, secret: true });
     }
 
     const sourceTab = state.tabs.find((t) => (t.name || '').trim().toLowerCase() === reqRef.toLowerCase());
@@ -1171,7 +1184,7 @@ async function init() {
       document.getElementById('authApiKeyValue').value = '{{api_token}}';
     }
 
-    await persistStore('environments');
+    await persistStore('profiles');
     await persistStore('settings');
     await saveSessionState();
     renderSidebar();
@@ -1337,212 +1350,95 @@ async function init() {
     await persistStore('settings');
   });
 
-  // Environment Selector, Profiles, Contorno da Requisição, Segredos e .env
-  document.getElementById('envSelect').addEventListener('change', async (e) => {
-    state.settings.activeEnvironmentId = e.target.value;
-    await persistStore('settings');
-    renderAll();
-  });
-
-  document.getElementById('envProfileQuickSelect')?.addEventListener('change', async (e) => {
-    const chosenProfile = e.target.value;
-    let env = getActiveEnvironment();
-    if (!env) {
-      if (state.environments.length === 0) {
-        env = {
-          id: uid('env'),
-          name: 'JSONPlaceholder (Local)',
-          profile: '',
-          borderColor: '',
-          customProfiles: [],
-          profileVariables: {},
-          variables: [{ key: 'base_url', value: 'https://jsonplaceholder.typicode.com', enabled: true, secret: false }]
-        };
-        state.environments.push(env);
-      } else {
-        env = state.environments[0];
-      }
-      state.settings.activeEnvironmentId = env.id;
-    }
-
-    if (chosenProfile === '__create__') {
-      openEnvModal(env.id);
-      setTimeout(() => {
-        document.getElementById('envNewProfileNameInput')?.focus();
-      }, 40);
-      applyActiveEnvProfileContour();
+  // Profile Selector, Contorno da Requisição, Variáveis e .env
+  document.getElementById('profileSelect')?.addEventListener('change', async (e) => {
+    const chosen = e.target.value;
+    if (chosen === '__create__') {
+      const profile = createProfile();
+      state.settings.activeProfileId = profile.id;
+      await persistStore('profiles');
+      await persistStore('settings');
+      renderAll();
+      openProfileModal(profile.id);
       return;
     }
-
-    switchEnvironmentActiveProfile(env, chosenProfile);
-    await persistStore('environments');
+    if (!chosen) return;
+    state.settings.activeProfileId = chosen;
     await persistStore('settings');
     renderAll();
-    const meta = getEnvProfileMeta(env);
-    if (meta.label) {
-      document.getElementById('statusMessage').textContent = meta.hasContour
-        ? `Profile "${meta.label}" ativado em "${env.name}" — Contorno ${meta.borderColor} aplicado na requisição!`
-        : `Profile "${meta.label}" ativado em "${env.name}" — Sem contorno customizado na requisição.`;
-    } else {
-      document.getElementById('statusMessage').textContent = `Environment "${env.name}" sem profile específico ativo.`;
-    }
+    const meta = getProfileMeta(getActiveProfile());
+    document.getElementById('statusMessage').textContent = meta.borderColor
+      ? `Profile "${meta.label}" ativado — Contorno ${meta.borderColor} aplicado na requisição!`
+      : `Profile "${meta.label}" ativado — Sem contorno customizado na requisição.`;
   });
 
-  document.getElementById('envQuickColorPicker')?.addEventListener('input', async (e) => {
-    const env = getActiveEnvironment();
-    if (!env) return;
-    ensureEnvProfileStructure(env);
-    env.borderColor = e.target.value;
-    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
-    if (cp) cp.borderColor = e.target.value;
-    applyActiveEnvProfileContour();
-    await persistStore('environments');
+  document.getElementById('profileColorPicker')?.addEventListener('input', async (e) => {
+    const profile = getActiveProfile();
+    if (!profile) return;
+    ensureProfileStructure(profile);
+    profile.borderColor = e.target.value;
+    applyActiveProfileContour();
+    await persistStore('profiles');
     renderSidebar();
   });
 
-  document.getElementById('envModalProfileSelect')?.addEventListener('change', (e) => {
-    const env = state.environments.find((x) => x.id === editingEnvId);
-    if (!env) return;
-    switchEnvironmentActiveProfile(env, e.target.value);
-    syncEnvModalProfileControls(env);
-    renderEnvVarsTable(env.variables);
-    if (env.id === state.settings.activeEnvironmentId) {
-      applyActiveEnvProfileContour();
-    }
-  });
-
-  const handleCreateCustomEnvProfile = () => {
-    const env = state.environments.find((x) => x.id === editingEnvId);
-    if (!env) return;
-    ensureEnvProfileStructure(env);
-    const nameInput = document.getElementById('envNewProfileNameInput');
-    const typedName = (nameInput?.value || '').trim();
-    const count = (env.customProfiles?.length || 0) + 1;
-    const newProfName = typedName || `Profile ${count}`;
-    const newProfId = `prof_${Date.now()}`;
-
-    const modeSelect = document.getElementById('envModalContourModeSelect');
-    const colorInput = document.getElementById('envModalBorderColorInput');
-    const initialColor = modeSelect?.value === 'custom' ? (colorInput?.value || '#ef4444') : '';
-
-    env.customProfiles.push({
-      id: newProfId,
-      name: newProfName,
-      borderColor: initialColor
-    });
-    if (nameInput) nameInput.value = '';
-    switchEnvironmentActiveProfile(env, newProfId, initialColor);
-    syncEnvModalProfileControls(env);
-    renderEnvVarsTable(env.variables);
-    if (env.id === state.settings.activeEnvironmentId) {
-      applyActiveEnvProfileContour();
-    }
-  };
-
-  document.getElementById('btnAddCustomEnvProfile')?.addEventListener('click', handleCreateCustomEnvProfile);
-
-  document.getElementById('envNewProfileNameInput')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleCreateCustomEnvProfile();
-    }
-  });
-
-  document.getElementById('btnDeleteCustomEnvProfile')?.addEventListener('click', async () => {
-    const env = state.environments.find((x) => x.id === editingEnvId);
-    if (!env || !env.profile) return;
-    ensureEnvProfileStructure(env);
-    const idx = env.customProfiles.findIndex((cp) => cp.id === env.profile);
-    if (idx !== -1) {
-      const removedProfile = env.customProfiles[idx];
-      if (window.CDO?.trash?.remove) {
-        await window.CDO.trash.remove({
-          type: 'profile',
-          item: removedProfile,
-          origin: { environmentId: env.id, index: idx }
-        });
-      } else {
-        env.customProfiles.splice(idx, 1);
-      }
-      delete env.profileVariables[removedProfile.id];
-    }
-    switchEnvironmentActiveProfile(env, '', '');
-    syncEnvModalProfileControls(env);
-    renderEnvVarsTable(env.variables);
-    if (env.id === state.settings.activeEnvironmentId) {
-      applyActiveEnvProfileContour();
-    }
-  });
-
-  document.getElementById('envModalContourModeSelect')?.addEventListener('change', (e) => {
-    const env = state.environments.find((x) => x.id === editingEnvId);
-    if (!env) return;
+  document.getElementById('profileModalContourModeSelect')?.addEventListener('change', (e) => {
+    const profile = state.profiles.find((x) => x.id === editingProfileId);
+    if (!profile) return;
     const mode = e.target.value;
-    if (mode === 'custom') {
-      env.borderColor = document.getElementById('envModalBorderColorInput')?.value || '#ef4444';
-    } else {
-      env.borderColor = '';
-    }
-    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
-    if (cp) cp.borderColor = env.borderColor;
-    syncEnvModalProfileControls(env);
-    if (env.id === state.settings.activeEnvironmentId) {
-      applyActiveEnvProfileContour();
+    profile.borderColor = mode === 'custom'
+      ? (document.getElementById('profileModalBorderColorInput')?.value || '#ef4444')
+      : '';
+    syncProfileModalControls(profile);
+    if (profile.id === state.settings.activeProfileId) {
+      applyActiveProfileContour();
     }
   });
 
-  document.getElementById('envModalBorderColorInput')?.addEventListener('input', (e) => {
-    const env = state.environments.find((x) => x.id === editingEnvId);
-    if (!env) return;
-    env.borderColor = e.target.value;
-    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
-    if (cp) cp.borderColor = env.borderColor;
-    syncEnvModalProfileControls(env);
-    if (env.id === state.settings.activeEnvironmentId) {
-      applyActiveEnvProfileContour();
+  document.getElementById('profileModalBorderColorInput')?.addEventListener('input', (e) => {
+    const profile = state.profiles.find((x) => x.id === editingProfileId);
+    if (!profile) return;
+    profile.borderColor = e.target.value;
+    syncProfileModalControls(profile);
+    if (profile.id === state.settings.activeProfileId) {
+      applyActiveProfileContour();
     }
   });
 
-  document.getElementById('envConfirmDestructiveCheckbox')?.addEventListener('change', (e) => {
-    const env = state.environments.find((x) => x.id === editingEnvId);
-    if (!env) return;
-    const checked = Boolean(e.target.checked);
-    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
-    if (cp) {
-      cp.confirmDestructive = checked;
-    } else {
-      env.confirmDestructive = checked;
-    }
+  document.getElementById('profileConfirmDestructiveCheckbox')?.addEventListener('change', (e) => {
+    const profile = state.profiles.find((x) => x.id === editingProfileId);
+    if (!profile) return;
+    profile.confirmDestructive = Boolean(e.target.checked);
     updateUrlInterpolatedPreview(getActiveTab());
   });
 
-  document.getElementById('envIsProdCheckbox')?.addEventListener('change', (e) => {
-    const env = state.environments.find((x) => x.id === editingEnvId);
-    if (!env) return;
-    const checked = Boolean(e.target.checked);
-    const cp = (env.customProfiles || []).find((x) => x.id === env.profile);
-    if (cp) {
-      cp.isProduction = checked;
-    } else {
-      env.isProduction = checked;
-    }
-    persistStore('environments');
+  document.getElementById('profileIsProdCheckbox')?.addEventListener('change', (e) => {
+    const profile = state.profiles.find((x) => x.id === editingProfileId);
+    if (!profile) return;
+    profile.isProduction = Boolean(e.target.checked);
+    persistStore('profiles');
     window.CDO?.app?.emitAppHook?.('sidebar:rendered', {});
   });
 
-  document.getElementById('btnManageEnv').addEventListener('click', () => {
-    openEnvModal(state.settings.activeEnvironmentId);
+  document.getElementById('btnManageProfile').addEventListener('click', () => {
+    openProfileModal(state.settings.activeProfileId);
   });
 
-  document.getElementById('btnNewEnvironment').addEventListener('click', () => {
-    openEnvModal(null);
+  document.getElementById('btnNewProfile').addEventListener('click', async () => {
+    const profile = createProfile();
+    state.settings.activeProfileId = profile.id;
+    await persistStore('profiles');
+    await persistStore('settings');
+    renderAll();
+    openProfileModal(profile.id);
   });
 
   document.getElementById('btnAddEnvVar').addEventListener('click', () => {
-    const env = state.environments.find((e) => e.id === editingEnvId);
-    if (!env) return;
-    env.variables.push({ key: '', value: '', enabled: true, secret: false });
-    renderEnvVarsTable(env.variables);
+    const profile = state.profiles.find((p) => p.id === editingProfileId);
+    if (!profile) return;
+    ensureProfileStructure(profile);
+    profile.variables.push({ key: '', value: '', enabled: true, secret: false });
+    renderEnvVarsTable(profile.variables);
   });
 
   document.getElementById('importEnvFileInput').addEventListener('change', (e) => {
@@ -1550,8 +1446,9 @@ async function init() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      const env = state.environments.find((x) => x.id === editingEnvId);
-      if (!env) return;
+      const profile = state.profiles.find((x) => x.id === editingProfileId);
+      if (!profile) return;
+      ensureProfileStructure(profile);
       String(reader.result || '')
         .split(/\r?\n/)
         .forEach((line) => {
@@ -1561,38 +1458,38 @@ async function init() {
           if (eq !== -1) {
             const k = trimmed.slice(0, eq).trim();
             const v = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, '');
-            const existing = env.variables.find((item) => item.key === k);
+            const existing = profile.variables.find((item) => item.key === k);
             if (existing) {
               existing.value = v;
             } else {
-              env.variables.push({ key: k, value: v, enabled: true, secret: /token|secret|key|pass/i.test(k) });
+              profile.variables.push({ key: k, value: v, enabled: true, secret: /token|secret|key|pass/i.test(k) });
             }
           }
         });
-      renderEnvVarsTable(env.variables);
+      renderEnvVarsTable(profile.variables);
     };
     reader.readAsText(file);
   });
 
   document.getElementById('btnExportEnvFile').addEventListener('click', () => {
-    const env = state.environments.find((x) => x.id === editingEnvId);
-    if (!env) return;
-    const content = (env.variables || [])
+    const profile = state.profiles.find((x) => x.id === editingProfileId);
+    if (!profile) return;
+    const content = (profile.variables || [])
       .filter((v) => v.key)
       .map((v) => `${v.key}=${v.value ?? ''}`)
       .join('\n');
     const blob = new Blob([content], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${(env.name || 'environment').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.env`;
+    a.download = `${(profile.name || 'profile').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.env`;
     a.click();
     URL.revokeObjectURL(a.href);
   });
 
-  function readEnvModalDbConfigInto(env) {
-    if (!env) return;
-    ensureEnvProfileStructure(env);
-    env.database = {
+  function readEnvModalDbConfigInto(profile) {
+    if (!profile) return;
+    ensureProfileStructure(profile);
+    profile.database = {
       enabled: Boolean(document.getElementById('envDbEnabledCheckbox')?.checked),
       client: document.getElementById('envDbClientSelect')?.value || 'postgres',
       connectionString: document.getElementById('envDbConnectionStringInput')?.value || '',
@@ -1620,29 +1517,29 @@ async function init() {
     if (!el) return;
     const evt = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
     el.addEventListener(evt, () => {
-      const env = state.environments.find((e) => e.id === editingEnvId);
-      if (!env) return;
+      const profile = state.profiles.find((p) => p.id === editingProfileId);
+      if (!profile) return;
       if (id === 'envDbClientSelect') {
         const portEl = document.getElementById('envDbPortInput');
         if (portEl && (portEl.value === '5432' || portEl.value === '3306' || !portEl.value)) {
           portEl.value = el.value === 'mysql' ? '3306' : el.value === 'postgres' ? '5432' : '';
         }
       }
-      readEnvModalDbConfigInto(env);
+      readEnvModalDbConfigInto(profile);
     });
   });
 
   document.getElementById('btnTestEnvDbConnection')?.addEventListener('click', async () => {
-    const env = state.environments.find((e) => e.id === editingEnvId);
-    if (!env) return;
-    readEnvModalDbConfigInto(env);
+    const profile = state.profiles.find((p) => p.id === editingProfileId);
+    if (!profile) return;
+    readEnvModalDbConfigInto(profile);
     const badge = document.getElementById('envDbTestStatusBadge');
     if (badge) {
       badge.textContent = '⏳ Testando conexão...';
       badge.style.color = 'var(--text-secondary)';
     }
     try {
-      const conn = resolveActiveDbConnection({ ...env, database: { ...env.database, enabled: true } });
+      const conn = resolveActiveDbConnection({ ...profile, database: { ...profile.database, enabled: true } });
       const res = await IPC.invoke('pm:db:testConnection', { connection: conn, timeoutMs: 8000 });
       if (badge) {
         if (res && res.ok) {
@@ -1661,49 +1558,49 @@ async function init() {
     }
   });
 
-  document.getElementById('btnSaveEnvModal').addEventListener('click', async () => {
-    const env = state.environments.find((e) => e.id === editingEnvId);
-    if (env) {
-      env.name = document.getElementById('envNameInput').value.trim() || 'Environment';
-      readEnvModalDbConfigInto(env);
-      await persistStore('environments');
+  document.getElementById('btnSaveProfileModal').addEventListener('click', async () => {
+    const profile = state.profiles.find((p) => p.id === editingProfileId);
+    if (profile) {
+      profile.name = document.getElementById('profileNameInput').value.trim() || 'Profile';
+      readEnvModalDbConfigInto(profile);
+      await persistStore('profiles');
       await persistStore('settings');
     }
-    document.getElementById('envModal').classList.add('hidden');
-    renderSidebar();
+    document.getElementById('profileModal').classList.add('hidden');
+    renderAll();
   });
 
-  document.getElementById('btnDeleteEnv').addEventListener('click', async () => {
-    const idx = state.environments.findIndex((e) => e.id === editingEnvId);
-    if (idx !== -1) {
-      const envItem = state.environments[idx];
+  document.getElementById('btnDeleteProfile').addEventListener('click', async () => {
+    const idx = state.profiles.findIndex((p) => p.id === editingProfileId);
+    if (idx !== -1 && state.profiles.length > 1) {
+      const profileItem = state.profiles[idx];
       if (window.CDO?.trash?.remove) {
         await window.CDO.trash.remove({
-          type: 'environment',
-          item: envItem,
+          type: 'profile',
+          item: profileItem,
           origin: { index: idx },
           confirm: async ({ count }) => window.CDO.dialog.confirm({
-            title: 'Excluir Environment',
-            message: `Excluir o Environment "${envItem.name}" com ${count} variáveis?`,
+            title: 'Excluir Profile',
+            message: `Excluir o Profile "${profileItem.name}" com ${count} variáveis?`,
             confirmLabel: 'Excluir',
             danger: true
           })
         });
       } else {
-        state.environments.splice(idx, 1);
+        state.profiles.splice(idx, 1);
       }
-      if (state.settings.activeEnvironmentId === editingEnvId) {
-        state.settings.activeEnvironmentId = state.environments[0]?.id || '';
+      if (state.settings.activeProfileId === editingProfileId || !state.profiles.some((p) => p.id === state.settings.activeProfileId)) {
+        state.settings.activeProfileId = state.profiles[0]?.id || '';
       }
-      await persistStore('environments');
+      await persistStore('profiles');
       await persistStore('settings');
     }
-    document.getElementById('envModal').classList.add('hidden');
-    renderSidebar();
+    document.getElementById('profileModal').classList.add('hidden');
+    renderAll();
   });
 
-  document.getElementById('btnCloseEnvModal').addEventListener('click', () => {
-    document.getElementById('envModal').classList.add('hidden');
+  document.getElementById('btnCloseProfileModal').addEventListener('click', () => {
+    document.getElementById('profileModal').classList.add('hidden');
   });
 
   // Cookie Jar Modal events
@@ -1921,6 +1818,7 @@ async function init() {
     const net = ensureNetworkSettings();
     net.ignoreCertErrors = Boolean(document.getElementById('netIgnoreCertErrorsCheckbox')?.checked);
     net.timeoutMs = Math.max(1000, Number(document.getElementById('netTimeoutMsInput')?.value) || 30000);
+    net.showTimingDetails = Boolean(document.getElementById('netShowTimingDetailsCheckbox')?.checked);
     net.mtls = {
       ...net.mtls,
       enabled: Boolean(document.getElementById('netMtlsEnabledCheckbox')?.checked),
@@ -2081,11 +1979,20 @@ async function init() {
     if (ovoParsed) {
       if (ovoParsed.kind === 'workspace') {
         if (ovoParsed.collections.length > 0) state.collections.push(...ovoParsed.collections);
-        if (ovoParsed.environments.length > 0) state.environments.push(...ovoParsed.environments);
+        const importedProfiles = (ovoParsed.profiles || ovoParsed.environments || []).map((p) => ({
+          id: p.id || uid('prof'),
+          name: p.name || 'Profile',
+          borderColor: p.borderColor || '',
+          isProduction: Boolean(p.isProduction),
+          confirmDestructive: Boolean(p.confirmDestructive),
+          database: p.database || undefined,
+          variables: Array.isArray(p.variables) ? p.variables : []
+        }));
+        if (importedProfiles.length > 0) state.profiles.push(...importedProfiles);
         await persistStore('collections');
-        await persistStore('environments');
+        await persistStore('profiles');
         document.getElementById('importModal').classList.add('hidden');
-        document.getElementById('statusMessage').textContent = `Workspace nativo .ovo importado (${ovoParsed.collections.length} Collections e ${ovoParsed.environments.length} Environments)!`;
+        document.getElementById('statusMessage').textContent = `Workspace nativo .ovo importado (${ovoParsed.collections.length} Collections e ${importedProfiles.length} Profiles)!`;
         renderAll();
         return;
       }
@@ -2232,7 +2139,7 @@ async function init() {
     ipc: IPC,
     isElectron: Boolean(window.pm && window.pm.sdk && window.pm.sdk.IPC),
     getActiveTab,
-    getActiveEnvironment,
+    getActiveProfile,
     createBlankTab,
     renderAll,
     renderSidebar,
@@ -2250,7 +2157,7 @@ async function init() {
     closeTab,
     executeBulkTabClose,
     syncTabBackToCollectionItem,
-    openEnvModal,
+    openProfileModal,
     openCommandPalette,
     openNetworkModal,
     saveSessionState,

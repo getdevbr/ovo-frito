@@ -39,13 +39,10 @@ describe('trash lib', () => {
     assert.equal(bad.ok, false);
   });
 
-  it('restore environment and profile', () => {
-    const state = { environments: [{ id: 'e1', customProfiles: [] }] };
-    assert.equal(tl.restore(state, tl.createEntry({ type: 'environment', item: { id: 'e2' }, origin: { index: 0 } })).ok, true);
-    const prof = tl.createEntry({ type: 'profile', item: { id: 'p1', name: 'P' }, origin: { environmentId: 'e1', index: 0 } });
-    assert.equal(tl.restore(state, prof).ok, true);
-    const e1 = state.environments.find((e) => e.id === 'e1');
-    assert.equal(e1.customProfiles[0].id, 'p1');
+  it('restore profile top-level', () => {
+    const state = { profiles: [{ id: 'p0' }] };
+    assert.equal(tl.restore(state, tl.createEntry({ type: 'profile', item: { id: 'p1', name: 'P' }, origin: { index: 0 } })).ok, true);
+    assert.equal(state.profiles[0].id, 'p1');
   });
 
   it('purgeExpired removes entries older than 30 days', () => {
@@ -61,7 +58,7 @@ describe('trash lib', () => {
   it('removeFromState removes by type', () => {
     const state = {
       collections: [{ id: 'c1', items: [{ id: 'r1' }, { id: 'r2' }] }],
-      environments: [{ id: 'e1' }]
+      profiles: [{ id: 'p1' }]
     };
     assert.equal(tl.removeFromState(state, tl.createEntry({ type: 'request', item: { id: 'r1' }, origin: { collectionId: 'c1' } })), true);
     assert.deepEqual(state.collections[0].items.map((i) => i.id), ['r2']);

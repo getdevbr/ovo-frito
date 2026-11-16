@@ -324,7 +324,7 @@ function createHttpEngine({ storage, cookieJar, vault, oauthTokenManager: initia
       }
 
       if (!Object.keys(headers).some((k) => k.toLowerCase() === 'user-agent')) {
-        headers['User-Agent'] = 'OvoFrito-Local/1.3.0 (100%-Local-First)';
+        headers['User-Agent'] = 'OvoFrito-Local/1.1.0 (100%-Local-First)';
       }
 
       if (requestSpec.auth?.type === 'aws_sigv4') {

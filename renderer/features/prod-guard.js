@@ -1,11 +1,11 @@
-/* U-09: faixa vermelha + rótulo do botão quando Profile/Env é Produção. */
+/* U-09: faixa vermelha + rótulo do botão quando o Profile ativo é Produção. */
 (function () {
   'use strict';
 
   function isProdActive() {
-    const envApi = window.CDO?.core?.env;
-    const env = typeof getActiveEnvironment === 'function' ? getActiveEnvironment() : null;
-    return Boolean(envApi?.isActiveProfileProduction?.(env));
+    const envApi = window.CDO?.core?.profiles;
+    const profile = typeof getActiveProfile === 'function' ? getActiveProfile() : null;
+    return Boolean(envApi?.isActiveProfileProduction?.(profile));
   }
 
   function refreshProdGuard() {

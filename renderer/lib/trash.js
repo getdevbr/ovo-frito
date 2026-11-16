@@ -44,9 +44,6 @@
     if (Array.isArray(clone.variables)) {
       clone.variables = clone.variables.map((v) => (v && v.secret ? { ...v, value: '' } : v));
     }
-    if (Array.isArray(clone.customProfiles)) {
-      clone.customProfiles = clone.customProfiles.map((cp) => ({ ...cp }));
-    }
     const scrubAuth = (auth) => {
       if (!auth || typeof auth !== 'object') return auth;
       const out = { ...auth };
@@ -98,19 +95,12 @@
         col.items.splice(Math.min(idx, col.items.length), 0, item);
         return { ok: true, store: 'collections' };
       }
-      case 'environment': {
-        if (!Array.isArray(state.environments)) state.environments = [];
-        const idx = Number.isInteger(origin.index) ? origin.index : state.environments.length;
-        state.environments.splice(Math.min(idx, state.environments.length), 0, item);
-        return { ok: true, store: 'environments' };
-      }
-      case 'profile': {
-        const env = state.environments.find((e) => e.id === origin.environmentId);
-        if (!env) return { ok: false, reason: 'environment-missing' };
-        if (!Array.isArray(env.customProfiles)) env.customProfiles = [];
-        const idx = Number.isInteger(origin.index) ? origin.index : env.customProfiles.length;
-        env.customProfiles.splice(Math.min(idx, env.customProfiles.length), 0, item);
-        return { ok: true, store: 'environments' };
+      case 'profile':
+      case 'environment': { // legado: environments antigos restauram como profiles
+        if (!Array.isArray(state.profiles)) state.profiles = [];
+        const idx = Number.isInteger(origin.index) ? origin.index : state.profiles.length;
+        state.profiles.splice(Math.min(idx, state.profiles.length), 0, item);
+        return { ok: true, store: 'profiles' };
       }
       default:
         return { ok: false, reason: 'unknown-type' };
@@ -141,16 +131,10 @@
         if (idx !== -1) col.items.splice(idx, 1);
         return true;
       }
+      case 'profile':
       case 'environment': {
-        const idx = state.environments.findIndex((e) => e.id === entry.item?.id);
-        if (idx !== -1) state.environments.splice(idx, 1);
-        return true;
-      }
-      case 'profile': {
-        const env = state.environments.find((e) => e.id === origin.environmentId);
-        if (!env) return false;
-        const idx = (env.customProfiles || []).findIndex((cp) => cp.id === entry.item?.id);
-        if (idx !== -1) env.customProfiles.splice(idx, 1);
+        const idx = state.profiles.findIndex((p) => p.id === entry.item?.id);
+        if (idx !== -1) state.profiles.splice(idx, 1);
         return true;
       }
       default:
