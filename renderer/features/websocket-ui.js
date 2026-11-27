@@ -8,7 +8,7 @@
     const actions = document.getElementById('toolsMenuSlot') || document.querySelector('.request-header-actions');
     if (!actions || document.getElementById('btnOpenWsModal')) return;
     const btn = document.createElement('button');
-    btn.id = 'btnOpenWsModal'; btn.type = 'button'; btn.className = 'btn-secondary'; btn.textContent = '🔌 WS'; btn.title = 'Cliente WebSocket ws:// / wss://';
+    btn.id = 'btnOpenWsModal'; btn.type = 'button'; btn.className = 'btn-secondary'; btn.innerHTML = `${window.CDO?.icons?.svg?.('plug') || ''} WS`; btn.title = 'Cliente WebSocket ws:// / wss://';
     actions.appendChild(btn);
 
     document.body.insertAdjacentHTML('beforeend', `
@@ -39,7 +39,16 @@
     function populate(){ const sel=document.getElementById('wsSaveCollectionSelect'); sel.innerHTML=''; for(const c of app()?.state?.collections||[]){const o=document.createElement('option');o.value=c.id;o.textContent=c.name||c.id;sel.appendChild(o);} }
 
     btn.addEventListener('click',()=>{ const t=app()?.getActiveTab?.(); const url=t?.url||''; document.getElementById('wsUrlInput').value=url.replace(/^http/,'ws'); populate(); modal.classList.remove('hidden'); });
-    document.getElementById('btnCloseWsModal').onclick=()=>{ try{socket?.close();}catch{} socket=null; modal.classList.add('hidden'); };
+    const closeWsModal = async () => {
+      if (socket && socket.readyState === WebSocket.OPEN && window.CDO?.dialog?.confirm) {
+        const ok = await window.CDO.dialog.confirm({ title: 'Fechar WebSocket', message: 'Há uma conexão WebSocket ativa. Deseja desconectar e fechar?', confirmLabel: 'Desconectar', danger: true });
+        if (!ok) return;
+      }
+      try{socket?.close();}catch{} socket=null; modal.classList.add('hidden');
+    };
+    document.getElementById('btnCloseWsModal').onclick = closeWsModal;
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeWsModal(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeWsModal(); });
     document.getElementById('btnWsConnect').onclick=()=>{
       try{socket?.close();}catch{}
       const url=document.getElementById('wsUrlInput').value.trim();

@@ -9,7 +9,7 @@
     const actions = document.getElementById('toolsMenuSlot') || document.querySelector('.request-header-actions');
     if (!actions || document.getElementById('btnOpenVaultModal')) return;
     const btn = document.createElement('button');
-    btn.id = 'btnOpenVaultModal'; btn.type = 'button'; btn.className = 'btn-secondary'; btn.textContent = '🗝 Cofre'; btn.title = 'Cofre local AES-256-GCM para segredos';
+    btn.id = 'btnOpenVaultModal'; btn.type = 'button'; btn.className = 'btn-secondary'; btn.innerHTML = `${window.CDO?.icons?.svg?.('lock') || ''} Cofre`; btn.title = 'Cofre local AES-256-GCM para segredos';
     actions.appendChild(btn);
 
     document.body.insertAdjacentHTML('beforeend', `
@@ -17,17 +17,22 @@
         <div class="modal-header"><h3>🗝 Cofre Local AES-256-GCM</h3><button id="btnCloseVaultModal" class="btn-icon">✕</button></div>
         <div class="modal-body">
           <div class="pane-header" style="flex-wrap:wrap;gap:8px;">
-            <input id="vaultPasswordInput" type="password" class="text-input" style="max-width:260px;" placeholder="Master password" />
-            <button id="btnVaultUnlock" class="btn-send" style="height:32px;">🔓 Unlock</button>
-            <button id="btnVaultLock" class="btn-small btn-danger-ghost">🔒 Lock</button>
+            <input id="vaultPasswordInput" type="password" class="text-input" style="max-width:260px;" placeholder="Senha mestra" />
+            <button id="btnVaultUnlock" class="btn-send" style="height:32px;">🔓 Desbloquear</button>
+            <button id="btnVaultLock" class="btn-small btn-danger-ghost">🔒 Bloquear</button>
             <span id="vaultStatus" style="font-size:12px;color:var(--text-secondary);"></span>
           </div>
           <div class="chain-grid" style="margin-top:10px;">
-            <input id="vaultKeyInput" class="text-input" placeholder="secret_key" />
-            <input id="vaultValueInput" class="text-input" placeholder="valor secreto" />
-            <button id="btnVaultSet" class="btn-small">💾 Save</button>
-            <button id="btnVaultGet" class="btn-small">📥 Get</button>
-            <button id="btnVaultDelete" class="btn-small btn-danger-ghost">🗑 Delete</button>
+            <input id="vaultKeyInput" class="text-input" spellcheck="false" placeholder="Chave (ex: api_secret)" />
+            <div style="display:flex;gap:4px;align-items:center;">
+              <input id="vaultValueInput" type="password" class="text-input" spellcheck="false" placeholder="Valor secreto" />
+              <button id="btnVaultToggleVis" type="button" class="btn-icon" title="Mostrar/Ocultar valor">👁</button>
+            </div>
+          </div>
+          <div class="chain-actions" style="margin-top:6px;">
+            <button id="btnVaultSet" class="btn-small">💾 Salvar</button>
+            <button id="btnVaultGet" class="btn-small">📥 Buscar</button>
+            <button id="btnVaultDelete" class="btn-small btn-danger-ghost">🗑 Excluir</button>
           </div>
           <pre id="vaultOutputPre" class="response-pre" style="min-height:180px;margin-top:8px;"></pre>
         </div>
@@ -68,6 +73,13 @@
     btn.addEventListener('click', () => { modal.classList.remove('hidden'); refreshStatus(); });
     document.getElementById('btnCloseVaultModal').onclick = () => { modal.classList.add('hidden'); settleUnlock(false); };
     modal.addEventListener('click', (e) => { if (e.target === modal) { modal.classList.add('hidden'); settleUnlock(false); } });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal.classList.contains('hidden')) { modal.classList.add('hidden'); settleUnlock(false); }
+    });
+    document.getElementById('btnVaultToggleVis')?.addEventListener('click', () => {
+      const inp = document.getElementById('vaultValueInput');
+      if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+    });
 
     document.getElementById('btnVaultUnlock').onclick = async () => {
       const password = document.getElementById('vaultPasswordInput').value;

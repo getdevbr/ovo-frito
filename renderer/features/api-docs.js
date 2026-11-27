@@ -17,7 +17,7 @@
     btn.id = 'btnOpenApiDocsModal';
     btn.type = 'button';
     btn.className = 'btn-secondary';
-    btn.textContent = '📄 Docs';
+    btn.innerHTML = `${window.CDO?.icons?.svg?.('file-text') || ''} Docs`;
     btn.title = 'Exportar Collection em documentação estática (Markdown ou HTML single-file)';
     actions.appendChild(btn);
 

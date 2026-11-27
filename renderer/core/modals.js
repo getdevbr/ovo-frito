@@ -322,9 +322,122 @@ function openCollectionConfigModal(col) {
   const foldersContainer = document.getElementById('collectionFoldersTable');
   if (foldersContainer) {
     foldersContainer.innerHTML = '';
-    if (col.items.length === 0) {
-      foldersContainer.innerHTML = `<div class="empty-hint">Nenhuma requisição nesta Collection ainda.</div>`;
-    } else {
+    const treeLib = window.CDO?.collectionTree;
+    const normFolder = (p) => (treeLib?.normalizeFolderPath ? treeLib.normalizeFolderPath(p) : String(p || '').split('/').map((s) => s.trim()).filter(Boolean).join('/'));
+    if (!Array.isArray(col.folders)) col.folders = [];
+
+    // Barra de criação de pasta + lista de pastas da Collection (renomear/excluir)
+    const addBar = document.createElement('div');
+    addBar.className = 'kv-row';
+    addBar.style.gridTemplateColumns = '1fr auto';
+    addBar.style.marginBottom = '6px';
+    const newFolderIn = document.createElement('input');
+    newFolderIn.type = 'text';
+    newFolderIn.id = 'colConfigNewFolderInput';
+    newFolderIn.className = 'kv-input';
+    newFolderIn.placeholder = 'Nova pasta (ex: Auth, Auth/OAuth, Pagamentos)';
+    const addFolderBtn = document.createElement('button');
+    addFolderBtn.type = 'button';
+    addFolderBtn.id = 'btnColConfigAddFolder';
+    addFolderBtn.className = 'btn-small';
+    addFolderBtn.textContent = '+ Criar Pasta';
+    const doCreateFolder = () => {
+      const target = normFolder(newFolderIn.value);
+      if (!target) return;
+      if (treeLib?.createFolder) {
+        treeLib.createFolder(col, target);
+      } else if (!col.folders.includes(target)) {
+        col.folders.push(target);
+      }
+      newFolderIn.value = '';
+      openCollectionConfigModal(col);
+    };
+    addFolderBtn.addEventListener('click', doCreateFolder);
+    newFolderIn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        doCreateFolder();
+      }
+    });
+    addBar.appendChild(newFolderIn);
+    addBar.appendChild(addFolderBtn);
+    foldersContainer.appendChild(addBar);
+
+    const allFolders = Array.from(new Set([
+      ...col.folders.map(normFolder),
+      ...(col.items || []).map((it) => normFolder(it.folder))
+    ].filter(Boolean)));
+
+    if (allFolders.length > 0) {
+      allFolders.forEach((folderPath) => {
+        const fRow = document.createElement('div');
+        fRow.className = 'kv-row';
+        fRow.style.gridTemplateColumns = '24px 1fr auto auto';
+        const iconEl = document.createElement('span');
+        iconEl.textContent = '📁';
+        const fIn = document.createElement('input');
+        fIn.type = 'text';
+        fIn.className = 'kv-input';
+        fIn.value = folderPath;
+        const renBtn = document.createElement('button');
+        renBtn.type = 'button';
+        renBtn.className = 'btn-small';
+        renBtn.textContent = 'Renomear';
+        const applyRename = () => {
+          const next = normFolder(fIn.value);
+          if (!next || next === folderPath) return;
+          if (treeLib?.renameFolder) {
+            treeLib.renameFolder(col, folderPath, next);
+          } else {
+            col.folders = col.folders.map((f) => (normFolder(f) === folderPath ? next : f));
+            (col.items || []).forEach((it) => {
+              if (normFolder(it.folder) === folderPath) it.folder = next;
+            });
+          }
+          openCollectionConfigModal(col);
+        };
+        renBtn.addEventListener('click', applyRename);
+        fIn.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            applyRename();
+          }
+        });
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'btn-small btn-danger-ghost';
+        delBtn.textContent = '🗑';
+        delBtn.title = `Excluir pasta "${folderPath}"`;
+        delBtn.addEventListener('click', () => {
+          if (treeLib?.deleteFolder) {
+            treeLib.deleteFolder(col, folderPath, { mode: 'moveToParent' });
+          } else {
+            const parent = folderPath.includes('/') ? folderPath.slice(0, folderPath.lastIndexOf('/')) : '';
+            col.folders = col.folders.filter((f) => {
+              const fn = normFolder(f);
+              return fn !== folderPath && !fn.startsWith(`${folderPath}/`);
+            });
+            (col.items || []).forEach((it) => {
+              const fn = normFolder(it.folder);
+              if (fn === folderPath || fn.startsWith(`${folderPath}/`)) it.folder = parent;
+            });
+          }
+          openCollectionConfigModal(col);
+        });
+        fRow.appendChild(iconEl);
+        fRow.appendChild(fIn);
+        fRow.appendChild(renBtn);
+        fRow.appendChild(delBtn);
+        foldersContainer.appendChild(fRow);
+      });
+    }
+
+    if (col.items.length === 0 && allFolders.length === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = 'Nenhuma pasta ou requisição nesta Collection ainda.';
+      foldersContainer.appendChild(hint);
+    } else if (col.items.length > 0) {
       col.items.forEach((it) => {
         const row = document.createElement('div');
         row.className = 'kv-row';
@@ -344,7 +457,7 @@ function openCollectionConfigModal(col) {
         folderIn.placeholder = 'Nome da Pasta (ex: Auth, Usuários)';
         folderIn.value = it.folder || '';
         folderIn.addEventListener('input', () => {
-          it.folder = folderIn.value.trim();
+          it.folder = normFolder(folderIn.value);
         });
         row.appendChild(badge);
         row.appendChild(nameEl);
@@ -358,6 +471,11 @@ function openCollectionConfigModal(col) {
     key: 'Variável da Collection (ex: service_prefix)',
     value: 'Valor (viaja no arquivo .ovo da Collection)'
   });
+
+  const colPreEl = document.getElementById('colPreRequestScriptInput');
+  if (colPreEl) colPreEl.value = col.preRequestScript || '';
+  const colPostEl = document.getElementById('colPostResponseScriptInput');
+  if (colPostEl) colPostEl.value = col.postResponseScript || '';
 
   document.getElementById('collectionConfigModal')?.classList.remove('hidden');
 }
@@ -418,6 +536,33 @@ function getCommandPaletteActions(query = '') {
     .map((a, i) => ({ a, i, r: a._rank ?? 2 }))
     .sort((x, y) => (x.r - y.r) || (x.i - y.i))
     .map(({ a }) => { delete a._rank; return a; });
+
+  // FUT-13: Busca global full-text (method:POST, in:body, in:url, in:headers, in:scripts)
+  const ws = window.CDO?.workspaceSearch;
+  if (q && ws && typeof ws.searchCollections === 'function') {
+    const hits = ws.searchCollections(state.collections, query, { limit: 40 });
+    if (/(?:method:|in:)/i.test(q)) {
+      return hits.map(({ collectionId, collectionName, item, matchedIn }) => ({
+        category: `Busca Full-Text: ${collectionName}`,
+        label: `[${item.method || 'GET'}] ${item.name || item.url}`,
+        sub: `${item.url || ''}${matchedIn.length ? ` • match: ${matchedIn.join(', ')}` : ''}`,
+        run: () => openRequestInTab(item, collectionId)
+      }));
+    }
+    const existingUrls = new Set(ordered.map((a) => `${a.label}|${a.sub}`));
+    hits.forEach(({ collectionId, collectionName, item, matchedIn }) => {
+      const label = `[${item.method || 'GET'}] ${item.folder ? `${item.folder} / ` : ''}${item.name || item.url}`;
+      const sub = item.url || '';
+      if (!existingUrls.has(`${label}|${sub}`)) {
+        ordered.push({
+          category: `Busca Full-Text: ${collectionName}`,
+          label,
+          sub: `${sub}${matchedIn.length ? ` • match: ${matchedIn.join(', ')}` : ''}`,
+          run: () => openRequestInTab(item, collectionId)
+        });
+      }
+    });
+  }
 
   if (!q) return ordered;
   return ordered.filter(

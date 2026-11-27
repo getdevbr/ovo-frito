@@ -358,6 +358,87 @@ function createHttpEngine({ storage, cookieJar, vault, oauthTokenManager: initia
         timings.ttfbMs = socketReadyAt ? Math.max(0, ttfbAt - socketReadyAt) : ttfbAt;
         const storedSettings = storage.readStore('settings') || {};
         const authCfg = requestSpec.auth || {};
+
+        // U-23: Controle e inspeção de redirects (301/302/303/307/308)
+        const followRedirects = requestSpec.followRedirects !== false;
+        const maxRedirects = Number.isFinite(Number(requestSpec.maxRedirects)) ? Math.max(0, Number(requestSpec.maxRedirects)) : 10;
+        const prevHops = Array.isArray(requestSpec.__redirectHops) ? requestSpec.__redirectHops : [];
+        const isRedirectStatus = [301, 302, 303, 307, 308].includes(res.statusCode);
+        const locationHeader = res.headers?.location;
+        if (followRedirects && isRedirectStatus && locationHeader) {
+          res.resume();
+          const hopTimeMs = Math.round(Number(process.hrtime.bigint() - startTime) / 1e6);
+          const hop = {
+            status: res.statusCode,
+            statusText: res.statusMessage || '',
+            url: parsedUrl.toString(),
+            location: String(locationHeader),
+            headers: res.headers || {},
+            timeMs: hopTimeMs
+          };
+          const nextHops = [...prevHops, hop];
+          if (prevHops.length >= maxRedirects) {
+            return resolve({
+              ok: false,
+              error: { code: 'MAX_REDIRECTS', message: `Limite máximo de ${maxRedirects} redirects atingido.` },
+              status: res.statusCode,
+              statusText: res.statusMessage || '',
+              timeMs: hopTimeMs,
+              sizeBytes: 0,
+              headers: res.headers || {},
+              cookies: [],
+              redirectHops: nextHops,
+              body: ''
+            });
+          }
+          let nextUrl;
+          try {
+            nextUrl = new URL(String(locationHeader), parsedUrl);
+          } catch {
+            return resolve({
+              ok: false,
+              error: { code: 'INVALID_REDIRECT_URL', message: `URL de redirect inválida: ${locationHeader}` },
+              status: res.statusCode,
+              statusText: res.statusMessage || '',
+              timeMs: hopTimeMs,
+              sizeBytes: 0,
+              headers: res.headers || {},
+              cookies: [],
+              redirectHops: nextHops,
+              body: ''
+            });
+          }
+          if (!['http:', 'https:'].includes(nextUrl.protocol)) {
+            return resolve({
+              ok: false,
+              error: { code: 'UNSUPPORTED_REDIRECT_PROTOCOL', message: `Protocolo de redirect não suportado: ${nextUrl.protocol}` },
+              status: res.statusCode,
+              statusText: res.statusMessage || '',
+              timeMs: hopTimeMs,
+              sizeBytes: 0,
+              headers: res.headers || {},
+              cookies: [],
+              redirectHops: nextHops,
+              body: ''
+            });
+          }
+          const sameOrigin = nextUrl.origin === parsedUrl.origin;
+          const nextMethod = (res.statusCode === 303 || ((res.statusCode === 301 || res.statusCode === 302) && method === 'POST')) ? 'GET' : method;
+          const nextBody = nextMethod === 'GET' ? { mode: 'none' } : requestSpec.body;
+          const nextHeaders = Array.isArray(requestSpec.headers)
+            ? requestSpec.headers.filter((h) => sameOrigin || !['authorization', 'cookie'].includes(String(h?.key || '').toLowerCase()))
+            : [];
+          const nextAuth = sameOrigin ? requestSpec.auth : { type: 'none' };
+          return executeHttpRequest({
+            ...requestSpec,
+            method: nextMethod,
+            url: nextUrl.toString(),
+            headers: nextHeaders,
+            auth: nextAuth,
+            body: nextBody,
+            __redirectHops: nextHops
+          }).then(resolve);
+        }
         if (authCfg.type === 'digest' && !requestSpec.__digestRetried && res.statusCode === 401) {
           const challenge = parseDigestChallenge(res.headers?.['www-authenticate']);
           if (challenge) {
@@ -435,6 +516,7 @@ function createHttpEngine({ storage, cookieJar, vault, oauthTokenManager: initia
             truncated,
             headers: res.headers || {},
             cookies: newCookies,
+            redirectHops: Array.isArray(requestSpec.__redirectHops) ? requestSpec.__redirectHops : [],
             requestSent: {
               method,
               url: parsedUrl.toString(),

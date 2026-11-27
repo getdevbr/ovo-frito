@@ -92,6 +92,19 @@ async function dispatchWebIpc(ctx, channel, payload) {
       case 'pm:git:clearCredentials': return gitSync.clearCredentials(repoId);
     }
   }
+  if (channel === 'pm:backup:export') {
+    const { exportBackup } = require('../services/backup');
+    return { ok: true, backup: exportBackup({ storage, dataDir: ctx.dataDir }) };
+  }
+  if (channel === 'pm:backup:preview') {
+    const { parseAndPreviewBackup } = require('../services/backup');
+    try { return parseAndPreviewBackup(payload?.raw); } catch (err) { return { ok: false, error: { code: 'BACKUP_INVALID', message: err.message } }; }
+  }
+  if (channel === 'pm:backup:restore') {
+    const { restoreBackup } = require('../services/backup');
+    try { return restoreBackup({ storage, dataDir: ctx.dataDir, vault, rawInput: payload?.raw, mode: payload?.mode, restoreVault: payload?.restoreVault }); } catch (err) { return { ok: false, error: { code: 'BACKUP_RESTORE_FAILED', message: err.message } }; }
+  }
+
   return null;
 }
 

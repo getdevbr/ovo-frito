@@ -12,7 +12,7 @@
     container.id = 'uiToastContainer';
     container.setAttribute('aria-live', 'polite');
     container.style.cssText = [
-      'position:fixed', 'right:16px', 'bottom:16px', 'z-index:10000',
+      'position:fixed', 'right:16px', 'bottom:16px', 'z-index:var(--z-toast, 1200)',
       'display:flex', 'flex-direction:column', 'gap:8px', 'max-width:380px'
     ].join(';');
     document.body.appendChild(container);
@@ -32,14 +32,25 @@
   function show({ message, type = 'info', action = null, durationMs = DEFAULT_DURATION } = {}) {
     if (!message) return null;
     ensureContainer();
+    const typeColors = {
+      success: 'var(--status-ok, #10b981)',
+      error: 'var(--status-err, #ef4444)',
+      warning: 'var(--status-warn, #f59e0b)',
+      warn: 'var(--status-warn, #f59e0b)',
+      info: 'var(--blue-btn, #2563eb)'
+    };
+    const accentColor = typeColors[type] || typeColors.info;
+
     const el = document.createElement('div');
     el.className = 'ui-toast';
     el.setAttribute('role', typeRole(type));
     el.style.cssText = [
       'display:flex', 'align-items:center', 'gap:10px',
       'padding:10px 14px', 'border-radius:8px',
-      'background:var(--surface, #1e1e2e)', 'color:var(--text, #eee)',
-      'border:1px solid var(--border, #333)', 'box-shadow:0 4px 16px rgba(0,0,0,.35)',
+      'background:var(--popover, #121216)', 'color:var(--popover-foreground, #fafafa)',
+      'border:1px solid var(--border, #27272a)',
+      `border-left:3px solid ${accentColor}`,
+      'box-shadow:0 8px 24px rgba(0,0,0,.35)',
       'font-size:13px'
     ].join(';');
 

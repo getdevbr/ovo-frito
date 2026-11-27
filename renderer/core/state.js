@@ -65,7 +65,9 @@ const state = {
   sidebarFilter: '',
   renamingCollectionId: null,
   renamingRequestId: null,
+  renamingFolderKey: null,
   collapsedCollections: {},
+  collapsedFolders: {},
   trash: []
 };
 
@@ -273,6 +275,7 @@ async function saveSessionState() {
 function applyTheme(theme) {
   const normalized = theme === 'light' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', normalized);
+  try { localStorage.setItem('ovofrito_theme', normalized); } catch {}
   const btn = document.getElementById('btnToggleTheme');
   if (btn) {
     btn.textContent = normalized === 'dark' ? '☀ Tema: Escuro (Mudar p/ Claro)' : '🌙 Tema: Claro (Mudar p/ Escuro)';

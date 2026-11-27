@@ -38,9 +38,14 @@ function createBlankTab(overrides = {}) {
     method: overrides.method || 'GET',
     url: overrides.url || 'https://jsonplaceholder.typicode.com/posts?_limit=3',
     params: overrides.params ? structuredClone(overrides.params) : [{ key: '_limit', value: '3', enabled: true }],
+    pathVars: Array.isArray(overrides.pathVars) ? structuredClone(overrides.pathVars) : [],
     headers: overrides.headers ? structuredClone(overrides.headers) : [{ key: 'Accept', value: 'application/json', enabled: true }],
     auth: overrides.auth ? { ...defaultAuth, ...structuredClone(overrides.auth) } : defaultAuth,
     body: mergedBody,
+    followRedirects: overrides.followRedirects !== false,
+    maxRedirects: Number.isFinite(Number(overrides.maxRedirects)) ? Number(overrides.maxRedirects) : 10,
+    baselineResponse: overrides.baselineResponse ? structuredClone(overrides.baselineResponse) : null,
+    ignoreDiffPaths: overrides.ignoreDiffPaths || '',
     assertions: overrides.assertions
       ? structuredClone(overrides.assertions)
       : [{ source: 'status', operator: '==', target: '200', enabled: true }],
@@ -305,7 +310,7 @@ function renderVarAutocompletePopover(filterTerm = '') {
     item.style.justifyContent = 'space-between';
     item.innerHTML = `
       <span><strong style="color:var(--accent); font-family:var(--font-mono);">{{${escapeHtml(v.key)}}}</strong> <span style="font-size:11px; color:var(--text-secondary);">= ${escapeHtml(v.value || '(vazio)')}</span></span>
-      <span class="badge">${escapeHtml(v.scope)}</span>
+      <span class="badge" style="white-space:nowrap; flex-shrink:0;">${escapeHtml(v.scope)}</span>
     `;
     item.addEventListener('click', () => {
       const tab = getActiveTab();

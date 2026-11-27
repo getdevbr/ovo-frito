@@ -4,7 +4,8 @@
 
   function isProdActive() {
     const envApi = window.CDO?.core?.profiles;
-    const profile = typeof getActiveProfile === 'function' ? getActiveProfile() : null;
+    const profile = window.CDO?.app?.getActiveProfile?.()
+      || (typeof getActiveProfile === 'function' ? getActiveProfile() : null);
     return Boolean(envApi?.isActiveProfileProduction?.(profile));
   }
 
@@ -26,8 +27,10 @@
     refreshProdGuard();
     const bus = window.CDO?.hookBus;
     if (bus?.on) {
-      ['sidebar:rendered', 'tab:activated', 'collection:changed'].forEach((ev) => bus.on(ev, refreshProdGuard));
+      ['app:ready', 'profile:changed', 'sidebar:rendered', 'tab:activated', 'collection:changed'].forEach((ev) => bus.on(ev, refreshProdGuard));
     }
+    document.getElementById('profileSelect')?.addEventListener('change', () => setTimeout(refreshProdGuard, 0));
+    document.getElementById('profileIsProdCheckbox')?.addEventListener('change', () => setTimeout(refreshProdGuard, 0));
   }
 
   if (typeof document !== 'undefined') {

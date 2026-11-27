@@ -244,6 +244,7 @@ function parseOvoFile(rawText) {
           collection: {
             ...parsed.collection,
             id: uid('col'),
+            folders: Array.isArray(parsed.collection.folders) ? parsed.collection.folders : [],
             variables: Array.isArray(parsed.collection.variables) ? parsed.collection.variables : [],
             items: (parsed.collection.items || []).map((it) => ({
               ...it,

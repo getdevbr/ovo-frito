@@ -109,6 +109,11 @@ function renderKeyValueTable(containerId, rows, onChange, placeholders = { key: 
     return;
   }
 
+  const hdr = document.createElement('div');
+  hdr.className = 'kv-table-header';
+  hdr.innerHTML = '<span></span><span>Chave</span><span>Valor</span><span></span>';
+  container.appendChild(hdr);
+
   rows.forEach((row, index) => {
     const div = document.createElement('div');
     div.className = 'kv-row';
@@ -123,6 +128,7 @@ function renderKeyValueTable(containerId, rows, onChange, placeholders = { key: 
 
     const keyInput = document.createElement('input');
     keyInput.type = 'text';
+    keyInput.spellcheck = false;
     keyInput.className = 'kv-input';
     keyInput.placeholder = placeholders.key;
     keyInput.value = row.key || '';
@@ -143,6 +149,7 @@ function renderKeyValueTable(containerId, rows, onChange, placeholders = { key: 
 
     const valInput = document.createElement('input');
     valInput.type = 'text';
+    valInput.spellcheck = false;
     valInput.className = 'kv-input';
     valInput.placeholder = placeholders.value;
     valInput.value = row.value || '';
@@ -208,6 +215,7 @@ function renderEnvVarsTable(rows) {
 
     const keyInput = document.createElement('input');
     keyInput.type = 'text';
+    keyInput.spellcheck = false;
     keyInput.className = 'kv-input';
     keyInput.placeholder = 'Nome da variável (ex: api_token)';
     keyInput.value = row.key || '';
@@ -285,6 +293,7 @@ function renderMultipartTable(tab) {
 
     const keyInput = document.createElement('input');
     keyInput.type = 'text';
+    keyInput.spellcheck = false;
     keyInput.className = 'kv-input';
     keyInput.placeholder = 'Nome do campo';
     keyInput.value = row.key || '';
@@ -744,6 +753,59 @@ function syncJsonEditor() {
 }
 
 
+function renderPathVarsTable(tab) {
+  const sec = document.getElementById('pathVarsSection');
+  const container = document.getElementById('pathVarsTable');
+  if (!sec || !container || !tab) return;
+  const pvLib = window.CDO?.pathVars;
+  if (!pvLib) return;
+  tab.pathVars = pvLib.syncPathVars(tab.url || '', tab.pathVars || []);
+  if (tab.pathVars.length === 0) {
+    sec.classList.add('hidden');
+    container.innerHTML = '';
+    return;
+  }
+  sec.classList.remove('hidden');
+  container.innerHTML = '';
+  tab.pathVars.forEach((pv) => {
+    const row = document.createElement('div');
+    row.className = 'kv-row';
+    row.style.gridTemplateColumns = '140px 1fr 1fr';
+    const keySpan = document.createElement('span');
+    keySpan.className = 'kv-input';
+    keySpan.style.fontWeight = '600';
+    keySpan.style.display = 'flex';
+    keySpan.style.alignItems = 'center';
+    keySpan.textContent = `:${pv.key}`;
+
+    const valIn = document.createElement('input');
+    valIn.type = 'text';
+    valIn.className = 'kv-input';
+    valIn.placeholder = `Valor para ${pv.key}`;
+    valIn.value = pv.value || '';
+    valIn.addEventListener('input', () => {
+      pv.value = valIn.value;
+      updateUrlInterpolatedPreview(tab);
+      syncTabBackToCollectionItem(tab, { includeHistory: false });
+    });
+
+    const descIn = document.createElement('input');
+    descIn.type = 'text';
+    descIn.className = 'kv-input';
+    descIn.placeholder = 'Descrição (opcional)';
+    descIn.value = pv.description || '';
+    descIn.addEventListener('input', () => {
+      pv.description = descIn.value;
+      syncTabBackToCollectionItem(tab, { includeHistory: false });
+    });
+
+    row.appendChild(keySpan);
+    row.appendChild(valIn);
+    row.appendChild(descIn);
+    container.appendChild(row);
+  });
+}
+
 function renderActiveRequest() {
   const tab = getActiveTab();
   if (!tab) return;
@@ -771,6 +833,12 @@ function renderActiveRequest() {
     syncUrlFromParams(tab);
     renderActiveBadges(tab);
   });
+  renderPathVarsTable(tab);
+
+  const followChk = document.getElementById('reqFollowRedirects');
+  if (followChk) followChk.checked = tab.followRedirects !== false;
+  const maxRedirIn = document.getElementById('reqMaxRedirects');
+  if (maxRedirIn) maxRedirIn.value = String(Number.isFinite(Number(tab.maxRedirects)) ? Number(tab.maxRedirects) : 10);
 
   renderKeyValueTable('headersTable', tab.headers, () => {
     renderActiveBadges(tab);

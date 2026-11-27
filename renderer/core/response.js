@@ -186,14 +186,14 @@ function openHistoryDiffModal(tab, histEntry) {
       if (oLine !== undefined) {
         const delDiv = document.createElement('div');
         delDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.14)';
-        delDiv.style.color = '#f87171';
+        delDiv.style.color = 'var(--diff-del-text, #f87171)';
         delDiv.textContent = `- ${oLine}`;
         diffPre.appendChild(delDiv);
       }
       if (nLine !== undefined) {
         const addDiv = document.createElement('div');
         addDiv.style.backgroundColor = 'rgba(16, 185, 129, 0.14)';
-        addDiv.style.color = '#34d399';
+        addDiv.style.color = 'var(--diff-add-text, #34d399)';
         addDiv.textContent = `+ ${nLine}`;
         diffPre.appendChild(addDiv);
       }
@@ -214,10 +214,12 @@ function renderResponseCore(tab) {
   const badgeResTests = document.getElementById('badgeResTests');
   const testsList = document.getElementById('responseTestsList');
 
+  if (!tab) return;
+
   renderRequestHistoryPane(tab);
 
   if (tab.loading) {
-    metaContainer.innerHTML = `<span class="meta-pill meta-warn">Executando requisição...</span>`;
+    metaContainer.innerHTML = `<span class="meta-pill meta-warn"><span class="loading-spinner" aria-hidden="true"></span>Executando requisição...</span>`;
     bodyPre.textContent = 'Aguardando resposta do servidor...';
     headersGrid.innerHTML = '';
     cookiesGrid.innerHTML = '';
@@ -252,11 +254,28 @@ function renderResponseCore(tab) {
   }
 
   const statusClass = res.status >= 200 && res.status < 300 ? 'meta-ok' : res.status >= 400 ? 'meta-err' : 'meta-warn';
+  const hops = Array.isArray(res.redirectHops) ? res.redirectHops : [];
+  const hopsHtml = hops.length > 0
+    ? ` <button type="button" id="btnInspectRedirectHops" class="meta-pill meta-warn" style="cursor:pointer;border:none;" title="Clique para inspecionar os saltos de redirect">↪ ${hops.length} redirect(s)</button>`
+    : '';
   metaContainer.innerHTML = `
     <span>Status: <strong class="meta-pill ${statusClass}">${escapeHtml(res.status)} ${escapeHtml(res.statusText || '')}</strong></span>
     <span>Time: <strong class="meta-pill ${statusClass}">${escapeHtml(res.timeMs)} ms</strong></span>
-    <span>Size: <strong class="meta-pill ${statusClass}">${escapeHtml(formatBytes(res.sizeBytes))}</strong></span>
+    <span>Size: <strong class="meta-pill ${statusClass}">${escapeHtml(formatBytes(res.sizeBytes))}</strong></span>${hopsHtml}
   `;
+  if (hops.length > 0) {
+    document.getElementById('btnInspectRedirectHops')?.addEventListener('click', () => {
+      const details = hops
+        .map((h, i) => `${i + 1}. [${h.status}] ${h.url} -> ${h.location} (${h.timeMs}ms)`)
+        .join('\n');
+      window.CDO?.dialog?.confirm?.({
+        title: `Cadeia de Redirects (${hops.length} hop(s))`,
+        message: 'Saltos HTTP seguidos antes da resposta final:',
+        details,
+        confirmLabel: 'Fechar'
+      });
+    });
+  }
 
   // Body Pretty vs Raw + Filtro JSONPath / Busca Rápida
   const filterExpr = (state.responseJsonFilter || '').trim();

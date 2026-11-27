@@ -14,7 +14,8 @@
 
   function diskEntries() {
     const s = state();
-    if (!Array.isArray(s?.trash)) s.trash = [];
+    if (!s) return [];
+    if (!Array.isArray(s.trash)) s.trash = [];
     return s.trash;
   }
 
@@ -140,7 +141,8 @@
     container.innerHTML = '';
     const entries = diskEntries();
     if (entries.length === 0) {
-      container.innerHTML = '<div class="empty-hint">Lixeira vazia. Itens excluídos ficam aqui por 30 dias.</div>';
+      const ico = window.CDO?.icons?.svg?.('trash', 24) || '';
+      container.innerHTML = `<div class="empty-hint" style="padding:28px 12px;"><div style="margin-bottom:8px;opacity:.5;">${ico}</div><div>Lixeira vazia.</div><div style="font-size:11px;margin-top:4px;opacity:.75;">Itens excluídos ficam aqui por 30 dias.</div></div>`;
       return;
     }
     if (hasSecretsNote()) {
@@ -184,6 +186,7 @@
   }
 
   function init() {
+    if (panelRendered) return;
     purgeExpired();
     const navBtn = document.querySelector('[data-sidebar-tab="trash"]');
     navBtn?.addEventListener('click', () => setTimeout(renderTrashPanel, 0));
@@ -191,11 +194,18 @@
     panelRendered = true;
   }
 
+  function boot() {
+    if (window.CDO?.hookBus?.on) {
+      window.CDO.hookBus.on('app:ready', init);
+    }
+    if (state()) init();
+  }
+
   window.CDO = window.CDO || {};
   window.CDO.trash = { remove, restoreEntry, purgeEntry, purgeExpired, renderTrashPanel };
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', boot);
   } else {
-    init();
+    boot();
   }
 })();

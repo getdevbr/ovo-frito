@@ -9,7 +9,7 @@
     if (overlay) return overlay;
     overlay = document.createElement('div');
     overlay.id = 'fileDropOverlay';
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:20000;display:none;align-items:center;justify-content:center;background:rgba(30,41,59,.72);border:3px dashed var(--accent,#4f8cff);pointer-events:none;';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:var(--z-dropzone, 1500);display:none;align-items:center;justify-content:center;background:rgba(30,41,59,.72);border:3px dashed var(--accent,#4f8cff);pointer-events:none;';
     overlay.innerHTML = '<div style="font-size:18px;font-weight:600;color:#fff;background:rgba(0,0,0,.55);padding:14px 22px;border-radius:10px;">Solte o arquivo aqui (.ovo, .bru, cURL, OpenAPI)</div>';
     document.body.appendChild(overlay);
     return overlay;

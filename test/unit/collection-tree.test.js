@@ -49,4 +49,15 @@ describe('collection-tree', () => {
     tree.deleteFolder(col2, 'A/B', { mode: 'deleteItems' });
     assert.equal(col2.items.length, 0);
   });
+
+  it('creates folder without duplicates and deduplicates on rename', () => {
+    const col = { folders: [], items: [] };
+    tree.createFolder(col, '  Auth / OAuth ');
+    tree.createFolder(col, 'Auth/OAuth');
+    assert.deepEqual(col.folders, ['Auth/OAuth']);
+
+    tree.createFolder(col, 'Temp');
+    tree.renameFolder(col, 'Temp', 'Auth/OAuth');
+    assert.deepEqual(col.folders, ['Auth/OAuth']);
+  });
 });

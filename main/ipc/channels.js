@@ -48,7 +48,10 @@ const INVOKE_CHANNELS = [
   'pm:git:resolveConflict',
   'pm:git:disconnect',
   'pm:git:setCredentials',
-  'pm:git:clearCredentials'
+  'pm:git:clearCredentials',
+  'pm:backup:export',
+  'pm:backup:preview',
+  'pm:backup:restore'
 ];
 
 const SEND_CHANNELS = [];

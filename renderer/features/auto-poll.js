@@ -11,7 +11,7 @@
     btnPoll.type = 'button';
     btnPoll.className = 'btn-secondary';
     btnPoll.style.height = '36px';
-    btnPoll.textContent = '⏱ Auto-Poll';
+    btnPoll.innerHTML = `${window.CDO?.icons?.svg?.('clock') || ''} Auto-Poll`;
     btnPoll.title = 'Repetir requisição até as Assertions passarem';
     btnSend.insertAdjacentElement('afterend', btnPoll);
 

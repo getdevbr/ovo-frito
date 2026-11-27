@@ -50,7 +50,10 @@ const ALLOWED_INVOKE_CHANNELS = new Set([
   'pm:git:resolveConflict',
   'pm:git:disconnect',
   'pm:git:setCredentials',
-  'pm:git:clearCredentials'
+  'pm:git:clearCredentials',
+  'pm:backup:export',
+  'pm:backup:preview',
+  'pm:backup:restore'
 ]);
 
 const ALLOWED_SEND_CHANNELS = new Set([]);

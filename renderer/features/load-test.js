@@ -106,7 +106,7 @@
     btn.id = 'btnOpenLoadTestModal';
     btn.type = 'button';
     btn.className = 'btn-secondary';
-    btn.textContent = '⚡ Carga';
+    btn.innerHTML = `${window.CDO?.icons?.svg?.('zap') || ''} Carga`;
     btn.title = isElectron() ? 'Teste de carga local contra a requisição ativa' : 'Disponível apenas no app Electron';
     if (!isElectron()) btn.disabled = true;
     actions.appendChild(btn);

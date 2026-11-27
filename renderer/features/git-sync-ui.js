@@ -14,7 +14,7 @@
     btn.id = 'btnOpenGitSyncModal';
     btn.type = 'button';
     btn.className = 'btn-secondary';
-    btn.textContent = '🌿 Git';
+    btn.innerHTML = `${window.CDO?.icons?.svg?.('git-branch') || ''} Git`;
     btn.title = 'Sincronizar Collection com repositório Git remoto';
     actions.appendChild(btn);
 
@@ -276,7 +276,10 @@
     document.getElementById('btnGitStatus')?.addEventListener('click', refreshStatus);
     document.getElementById('btnGitDisconnect')?.addEventListener('click', async () => {
       if (!currentRepo) return;
-      const del = window.confirm('Desconectar este repositório? O clone local em data/git-repos será mantido (use "deleteLocalClone" via API para remover).');
+      const msg = 'Desconectar este repositório? O clone local em data/git-repos será mantido (use "deleteLocalClone" via API para remover).';
+      const del = window.CDO?.dialog?.confirm
+        ? await window.CDO.dialog.confirm({ title: 'Desconectar repositório', message: msg, confirmLabel: 'Desconectar', danger: true })
+        : window.confirm(msg);
       if (!del) return;
       const res = await ipc()?.invoke('pm:git:disconnect', { repoId: currentRepo.id });
       logLine(res?.ok ? '✓ desconectado' : `✗ ${res?.error?.message || 'falha'}`);
@@ -287,7 +290,10 @@
 
     document.getElementById('btnGitKeepLocal')?.addEventListener('click', async () => {
       if (!currentRepo) return;
-      const ok = window.confirm('Manter versão LOCAL e sobrescrever o remoto com force push? Esta ação é destrutiva no repositório remoto.');
+      const msg = 'Manter versão LOCAL e sobrescrever o remoto com force push? Esta ação é destrutiva no repositório remoto.';
+      const ok = window.CDO?.dialog?.confirm
+        ? await window.CDO.dialog.confirm({ title: 'Manter versão local (Force Push)', message: msg, confirmLabel: 'Sobrescrever remoto', danger: true })
+        : window.confirm(msg);
       if (!ok) return;
       const res = await ipc()?.invoke('pm:git:resolveConflict', { repoId: currentRepo.id, strategy: 'local' });
       logLine(res?.ok ? '✓ versão local mantida' : `✗ ${res?.error?.message || 'falha'}`);
@@ -296,7 +302,10 @@
     });
     document.getElementById('btnGitKeepRemote')?.addEventListener('click', async () => {
       if (!currentRepo) return;
-      const ok = window.confirm('Manter versão REMOTA? Alterações locais não enviadas serão descartadas (reset --hard).');
+      const msg = 'Manter versão REMOTA? Alterações locais não enviadas serão descartadas (reset --hard).';
+      const ok = window.CDO?.dialog?.confirm
+        ? await window.CDO.dialog.confirm({ title: 'Manter versão remota', message: msg, confirmLabel: 'Descartar local', danger: true })
+        : window.confirm(msg);
       if (!ok) return;
       const res = await ipc()?.invoke('pm:git:resolveConflict', { repoId: currentRepo.id, strategy: 'remote' });
       logLine(res?.ok ? '✓ versão remota mantida' : `✗ ${res?.error?.message || 'falha'}`);

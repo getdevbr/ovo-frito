@@ -80,7 +80,14 @@
     };
 
     if (Array.isArray(collection.folders)) {
-      collection.folders = collection.folders.map(replacePrefix);
+      const seen = new Set();
+      collection.folders = collection.folders
+        .map(replacePrefix)
+        .filter((f) => {
+          if (!f || seen.has(f)) return false;
+          seen.add(f);
+          return true;
+        });
     }
     for (const item of collection.items || []) {
       if (item.folder) item.folder = replacePrefix(item.folder);

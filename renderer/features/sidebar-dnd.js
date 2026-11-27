@@ -16,9 +16,13 @@
 
       const cols = listEl.querySelectorAll('[data-col-id]');
       cols.forEach((colEl) => {
-        colEl.addEventListener('dragover', (e) => e.preventDefault());
+        colEl.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
         colEl.addEventListener('drop', async (e) => {
           e.preventDefault();
+          e.stopPropagation();
           const itemId = e.dataTransfer.getData('text/plain');
           const toColId = colEl.dataset.colId;
           if (!itemId || !toColId || !window.CDO?.app?.state?.collections) return;

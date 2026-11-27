@@ -66,7 +66,10 @@ function renderSidebarCore() {
     welcome.querySelector('#onboardBlankTab')?.addEventListener('click', () => { if (typeof createBlankTab === 'function') { const t = createBlankTab(); state.tabs.push(t); state.activeTabId = t.id; saveSessionState(); renderAll(); } });
   }
 
-  state.collections.forEach((col, colIdx) => {
+    state.collections.forEach((col, colIdx) => {
+    const treeLib = window.CDO?.collectionTree;
+    const normFolder = (p) => (treeLib?.normalizeFolderPath ? treeLib.normalizeFolderPath(p) : String(p || '').split('/').map((s) => s.trim()).filter(Boolean).join('/'));
+
     const filteredItems = (col.items || []).filter((it) => {
       if (!filterTerm) return true;
       return (
@@ -76,10 +79,95 @@ function renderSidebarCore() {
         (it.method || '').toLowerCase().includes(filterTerm)
       );
     });
+    const filteredFolders = (col.folders || []).filter((f) => {
+      if (!filterTerm) return true;
+      return normFolder(f).toLowerCase().includes(filterTerm);
+    });
 
-    if (filterTerm && filteredItems.length === 0 && !(col.name || '').toLowerCase().includes(filterTerm)) {
+    if (
+      filterTerm &&
+      filteredItems.length === 0 &&
+      filteredFolders.length === 0 &&
+      !(col.name || '').toLowerCase().includes(filterTerm)
+    ) {
       return;
     }
+
+    const createReqInFolder = async (folderPath = '') => {
+      state.collapsedCollections[col.id] = false;
+      const targetFolder = normFolder(folderPath);
+      if (targetFolder) {
+        let acc = '';
+        for (const part of targetFolder.split('/')) {
+          acc = acc ? `${acc}/${part}` : part;
+          delete state.collapsedFolders[`${col.id}::${acc}`];
+        }
+      }
+      if (!Array.isArray(col.items)) col.items = [];
+      const newReqItem = {
+        id: uid('req'),
+        name: `Nova Request ${(col.items.length || 0) + 1}`,
+        folder: targetFolder,
+        method: 'GET',
+        url: '{{base_url}}/posts',
+        params: [],
+        headers: [{ key: 'Accept', value: 'application/json', enabled: true }],
+        auth: {
+          type: col.auth?.type && col.auth.type !== 'none' ? 'inherit' : 'none',
+          token: '',
+          username: '',
+          password: '',
+          keyName: '',
+          keyValue: '',
+          addTo: 'header'
+        },
+        body: { mode: 'none', raw: '', graphqlQuery: '', graphqlVars: '{\n  \n}', urlencoded: [], formdata: [] },
+        assertions: [{ source: 'status', operator: '==', target: '200', enabled: true }],
+        captures: [],
+        preRequestScript: '',
+        postResponseScript: ''
+      };
+      col.items.push(newReqItem);
+      state.renamingRequestId = newReqItem.id;
+      openRequestInTab(newReqItem, col.id);
+      await persistStore('collections');
+    };
+
+    const createNewFolderInCollection = async (parentPath = '') => {
+      state.collapsedCollections[col.id] = false;
+      const parentNorm = normFolder(parentPath);
+      if (parentNorm) {
+        let acc = '';
+        for (const part of parentNorm.split('/')) {
+          acc = acc ? `${acc}/${part}` : part;
+          delete state.collapsedFolders[`${col.id}::${acc}`];
+        }
+      }
+      if (!Array.isArray(col.folders)) col.folders = [];
+      const existing = new Set([
+        ...col.folders.map(normFolder),
+        ...(col.items || []).map((it) => normFolder(it.folder))
+      ].filter(Boolean));
+      let idx = 1;
+      let candidate = parentNorm ? `${parentNorm}/Nova Pasta` : 'Nova Pasta';
+      while (existing.has(candidate)) {
+        idx += 1;
+        candidate = parentNorm ? `${parentNorm}/Nova Pasta ${idx}` : `Nova Pasta ${idx}`;
+      }
+      if (treeLib?.createFolder) {
+        treeLib.createFolder(col, candidate);
+      } else if (!col.folders.includes(candidate)) {
+        col.folders.push(candidate);
+      }
+      if (state.sidebarFilter) {
+        state.sidebarFilter = '';
+        const searchInp = document.getElementById('sidebarSearchInput');
+        if (searchInp) searchInp.value = '';
+      }
+      state.renamingFolderKey = `${col.id}::${candidate}`;
+      renderSidebar();
+      await persistStore('collections');
+    };
 
     const group = document.createElement('div');
     group.className = 'collection-group';
@@ -146,81 +234,55 @@ function renderSidebarCore() {
     addReqBtn.title = 'Criar nova Request nesta Collection';
     addReqBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      state.collapsedCollections[col.id] = false;
-      if (!Array.isArray(col.items)) col.items = [];
-      const newReqItem = {
-        id: uid('req'),
-        name: `Nova Request ${(col.items.length || 0) + 1}`,
-        folder: '',
-        method: 'GET',
-        url: '{{base_url}}/posts',
-        params: [],
-        headers: [{ key: 'Accept', value: 'application/json', enabled: true }],
-        auth: {
-          type: col.auth?.type && col.auth.type !== 'none' ? 'inherit' : 'none',
-          token: '',
-          username: '',
-          password: '',
-          keyName: '',
-          keyValue: '',
-          addTo: 'header'
-        },
-        body: { mode: 'none', raw: '', graphqlQuery: '', graphqlVars: '{\n  \n}', urlencoded: [], formdata: [] },
-        assertions: [{ source: 'status', operator: '==', target: '200', enabled: true }],
-        captures: [],
-        preRequestScript: '',
-        postResponseScript: ''
-      };
-      col.items.push(newReqItem);
-      await persistStore('collections');
-      state.renamingRequestId = newReqItem.id;
-      openRequestInTab(newReqItem, col.id);
+      await createReqInFolder('');
     });
 
-    // Botão Renomear Collection
-    const renColBtn = document.createElement('button');
-    renColBtn.className = 'tree-item-delete';
-    renColBtn.textContent = '✏️';
-    renColBtn.title = 'Renomear Collection';
-    renColBtn.addEventListener('click', (e) => {
+    const makeMenuBtn = (iconName, text, title, onClick, isDanger = false) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = isDanger ? 'btn-small btn-danger-ghost' : 'btn-small';
+      const ico = window.CDO?.icons?.svg ? window.CDO.icons.svg(iconName, 13) : '';
+      b.innerHTML = `${ico}<span>${escapeHtml(text)}</span>`;
+      b.title = title;
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuPopover.classList.add('hidden');
+        onClick(e);
+      });
+      return b;
+    };
+
+    const moreWrap = document.createElement('div');
+    moreWrap.className = 'cdo-dropdown';
+
+    const moreBtn = document.createElement('button');
+    moreBtn.type = 'button';
+    moreBtn.className = 'btn-add-req-inline';
+    moreBtn.textContent = '⋯';
+    moreBtn.title = `Mais ações para ${col.name}`;
+    moreBtn.setAttribute('aria-label', `Mais ações para ${col.name}`);
+
+    const menuPopover = document.createElement('div');
+    menuPopover.className = 'cdo-menu-popover hidden';
+    menuPopover.style.minWidth = '195px';
+
+    moreBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      const willOpen = menuPopover.classList.contains('hidden');
+      document.querySelectorAll('.cdo-menu-popover').forEach((p) => p.classList.add('hidden'));
+      if (willOpen) menuPopover.classList.remove('hidden');
+    });
+
+    menuPopover.appendChild(makeMenuBtn('folder-plus', 'Nova Pasta', 'Criar nova Pasta nesta Collection', () => createNewFolderInCollection('')));
+    menuPopover.appendChild(makeMenuBtn('play', 'Executar Runner', 'Executar Collection em Sequência (Collection Runner)', () => runCollectionSequentially(col)));
+    menuPopover.appendChild(makeMenuBtn('settings', 'Configurar', 'Configurar Pastas e Variáveis da Collection', () => openCollectionConfigModal(col)));
+    menuPopover.appendChild(makeMenuBtn('edit', 'Renomear', 'Renomear Collection', () => {
       state.renamingCollectionId = col.id;
       renderSidebar();
-    });
-
-    const runColBtn = document.createElement('button');
-    runColBtn.className = 'tree-item-delete';
-    runColBtn.textContent = '▶';
-    runColBtn.title = 'Executar Collection em Sequência (Collection Runner)';
-    runColBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      runCollectionSequentially(col);
-    });
-
-    const expOvoColBtn = document.createElement('button');
-    expOvoColBtn.className = 'btn-add-req-inline';
-    expOvoColBtn.textContent = '🥚 .ovo';
-    expOvoColBtn.title = 'Exportar Collection no formato nativo .ovo (Ovo Frito)';
-    expOvoColBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      exportCollectionAsOvo(col);
-    });
-
-    const expColBtn = document.createElement('button');
-    expColBtn.className = 'tree-item-delete';
-    expColBtn.textContent = '📤';
-    expColBtn.title = 'Exportar como Postman Collection v2.1 (.json)';
-    expColBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      exportCollectionAsPostmanV21(col);
-    });
-
-    const delColBtn = document.createElement('button');
-    delColBtn.className = 'tree-item-delete';
-    delColBtn.textContent = '🗑';
-    delColBtn.title = 'Excluir Collection';
-    delColBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
+    }));
+    menuPopover.appendChild(makeMenuBtn('download', 'Exportar .ovo', 'Exportar Collection no formato nativo .ovo (Ovo Frito)', () => exportCollectionAsOvo(col)));
+    menuPopover.appendChild(makeMenuBtn('upload', 'Exportar Postman', 'Exportar como Postman Collection v2.1 (.json)', () => exportCollectionAsPostmanV21(col)));
+    menuPopover.appendChild(makeMenuBtn('trash', 'Excluir Collection', 'Excluir Collection', async () => {
       if (window.CDO?.trash?.remove) {
         await window.CDO.trash.remove({
           type: 'collection',
@@ -238,24 +300,13 @@ function renderSidebarCore() {
       state.collections.splice(colIdx, 1);
       await persistStore('collections');
       renderSidebar();
-    });
+    }, true));
 
-    const cfgColBtn = document.createElement('button');
-    cfgColBtn.className = 'tree-item-delete';
-    cfgColBtn.textContent = '⚙';
-    cfgColBtn.title = 'Configurar Pastas e Variáveis da Collection';
-    cfgColBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openCollectionConfigModal(col);
-    });
+    moreWrap.appendChild(moreBtn);
+    moreWrap.appendChild(menuPopover);
 
     actionsWrap.appendChild(addReqBtn);
-    actionsWrap.appendChild(expOvoColBtn);
-    actionsWrap.appendChild(cfgColBtn);
-    actionsWrap.appendChild(renColBtn);
-    actionsWrap.appendChild(runColBtn);
-    actionsWrap.appendChild(expColBtn);
-    actionsWrap.appendChild(delColBtn);
+    actionsWrap.appendChild(moreWrap);
     header.appendChild(actionsWrap);
 
     const itemsWrap = document.createElement('div');
@@ -263,23 +314,13 @@ function renderSidebarCore() {
     itemsWrap.dataset.colId = col.id;
     itemsWrap.dataset.folderPath = '';
 
-    let lastFolder = null;
-    filteredItems.forEach((item) => {
+    const renderRequestRow = (item, depth = 0) => {
       if (!item.id) item.id = uid('req');
-      const folderName = (item.folder || '').trim();
-      if (folderName && folderName !== lastFolder) {
-        lastFolder = folderName;
-        const fLabel = document.createElement('div');
-        fLabel.className = 'folder-label';
-        fLabel.dataset.colId = col.id;
-        fLabel.dataset.folderPath = folderName;
-        fLabel.textContent = `📁 ${folderName}`;
-        itemsWrap.appendChild(fLabel);
-      }
-
+      const folderName = normFolder(item.folder || '');
       const realIdx = col.items.indexOf(item);
       const row = document.createElement('div');
       row.className = 'tree-item';
+      if (depth > 0) row.style.paddingLeft = `${8 + depth * 12}px`;
       row.dataset.reqId = item.id;
       row.dataset.folderPath = folderName;
       row.addEventListener('click', () => {
@@ -399,7 +440,191 @@ function renderSidebarCore() {
       row.appendChild(dupBtn);
       row.appendChild(favBtn);
       row.appendChild(delBtn);
-      itemsWrap.appendChild(row);
+      return row;
+    };
+
+    const renderFolderNode = (folderNode, container, depth = 0) => {
+      const folderPath = folderNode.path;
+      const folderKey = `${col.id}::${folderPath}`;
+      const isFolderCollapsed = !filterTerm && !!state.collapsedFolders[folderKey];
+
+      const fRow = document.createElement('div');
+      fRow.className = 'folder-label folder-row';
+      if (depth > 0) fRow.style.paddingLeft = `${6 + depth * 12}px`;
+      fRow.dataset.colId = col.id;
+      fRow.dataset.folderPath = folderPath;
+
+      if (state.renamingFolderKey === folderKey) {
+        const folderInput = document.createElement('input');
+        folderInput.type = 'text';
+        folderInput.className = 'inline-rename-input';
+        folderInput.value = folderPath;
+        folderInput.title = 'Nome da pasta (use / para subpastas)';
+        folderInput.addEventListener('click', (e) => e.stopPropagation());
+        const finishFolderRename = async (save) => {
+          if (state.renamingFolderKey !== folderKey) return;
+          const nextPath = normFolder(folderInput.value);
+          state.renamingFolderKey = null;
+          if (save && nextPath && nextPath !== folderPath) {
+            if (treeLib?.renameFolder) {
+              treeLib.renameFolder(col, folderPath, nextPath);
+            } else {
+              if (Array.isArray(col.folders)) {
+                col.folders = col.folders.map((f) => (normFolder(f) === folderPath ? nextPath : f));
+              }
+              (col.items || []).forEach((it) => {
+                if (normFolder(it.folder) === folderPath) it.folder = nextPath;
+              });
+            }
+            // Sincroniza abas abertas pertencentes à collection
+            state.tabs.forEach((t) => {
+              if (t.collectionId === col.id && t.collectionItemId) {
+                const matched = (col.items || []).find((it) => it.id === t.collectionItemId);
+                if (matched) t.folder = matched.folder || '';
+              }
+            });
+            await persistStore('collections');
+          }
+          renderAll();
+        };
+        folderInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') finishFolderRename(true);
+          if (e.key === 'Escape') finishFolderRename(false);
+        });
+        folderInput.addEventListener('blur', () => finishFolderRename(true));
+        fRow.appendChild(folderInput);
+        setTimeout(() => {
+          folderInput.scrollIntoView({ block: 'nearest' });
+          folderInput.focus();
+          folderInput.select();
+        }, 10);
+      } else {
+        const fTitle = document.createElement('span');
+        fTitle.className = 'folder-title';
+        fTitle.title = `${folderPath} • Clique para expandir/recolher • Duplo-clique para renomear`;
+        fTitle.textContent = `${isFolderCollapsed ? '📁' : '📂'} ${folderNode.name}`;
+        fTitle.addEventListener('click', () => {
+          state.collapsedFolders[folderKey] = !state.collapsedFolders[folderKey];
+          renderSidebar();
+        });
+        fTitle.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          state.renamingFolderKey = folderKey;
+          renderSidebar();
+        });
+        fRow.appendChild(fTitle);
+      }
+
+      const fActions = document.createElement('div');
+      fActions.className = 'folder-actions';
+
+      const addReqInFolderBtn = document.createElement('button');
+      addReqInFolderBtn.className = 'tree-item-delete';
+      addReqInFolderBtn.textContent = '+';
+      addReqInFolderBtn.title = `Criar Request na pasta "${folderPath}"`;
+      addReqInFolderBtn.setAttribute('aria-label', `Criar Request na pasta ${folderPath}`);
+      addReqInFolderBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await createReqInFolder(folderPath);
+      });
+
+      const addSubFolderBtn = document.createElement('button');
+      addSubFolderBtn.className = 'tree-item-delete';
+      addSubFolderBtn.innerHTML = window.CDO?.icons?.svg?.('folder-plus', 13) || '📁+';
+      addSubFolderBtn.title = `Criar subpasta dentro de "${folderPath}"`;
+      addSubFolderBtn.setAttribute('aria-label', `Criar subpasta em ${folderPath}`);
+      addSubFolderBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await createNewFolderInCollection(folderPath);
+      });
+
+      const renFolderBtn = document.createElement('button');
+      renFolderBtn.className = 'tree-item-delete';
+      renFolderBtn.textContent = '✏️';
+      renFolderBtn.title = `Renomear pasta "${folderPath}"`;
+      renFolderBtn.setAttribute('aria-label', `Renomear pasta ${folderPath}`);
+      renFolderBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.renamingFolderKey = folderKey;
+        renderSidebar();
+      });
+
+      const delFolderBtn = document.createElement('button');
+      delFolderBtn.className = 'tree-item-delete';
+      delFolderBtn.textContent = '🗑';
+      delFolderBtn.title = `Excluir pasta "${folderPath}"`;
+      delFolderBtn.setAttribute('aria-label', `Excluir pasta ${folderPath}`);
+      delFolderBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const affectedCount = (col.items || []).filter((it) => {
+          const fn = normFolder(it.folder);
+          return fn === folderPath || fn.startsWith(`${folderPath}/`);
+        }).length;
+        if (affectedCount > 0 && window.CDO?.dialog?.confirm) {
+          const ok = await window.CDO.dialog.confirm({
+            title: 'Excluir Pasta',
+            message: `Excluir a pasta "${folderPath}"? As ${affectedCount} requisição(ões) dentro dela serão movidas para o nível superior.`,
+            confirmLabel: 'Excluir Pasta',
+            danger: true
+          });
+          if (!ok) return;
+        }
+        if (treeLib?.deleteFolder) {
+          treeLib.deleteFolder(col, folderPath, { mode: 'moveToParent' });
+        } else {
+          const parent = folderPath.includes('/') ? folderPath.slice(0, folderPath.lastIndexOf('/')) : '';
+          if (Array.isArray(col.folders)) {
+            col.folders = col.folders.filter((f) => {
+              const fn = normFolder(f);
+              return fn !== folderPath && !fn.startsWith(`${folderPath}/`);
+            });
+          }
+          (col.items || []).forEach((it) => {
+            const fn = normFolder(it.folder);
+            if (fn === folderPath || fn.startsWith(`${folderPath}/`)) it.folder = parent;
+          });
+        }
+        state.tabs.forEach((t) => {
+          if (t.collectionId === col.id && t.collectionItemId) {
+            const matched = (col.items || []).find((it) => it.id === t.collectionItemId);
+            if (matched) t.folder = matched.folder || '';
+          }
+        });
+        renderAll();
+        await persistStore('collections');
+      });
+
+      fActions.appendChild(addReqInFolderBtn);
+      fActions.appendChild(addSubFolderBtn);
+      fActions.appendChild(renFolderBtn);
+      fActions.appendChild(delFolderBtn);
+      fRow.appendChild(fActions);
+      container.appendChild(fRow);
+
+      if (!isFolderCollapsed) {
+        const childrenWrap = document.createElement('div');
+        childrenWrap.className = 'folder-children';
+        childrenWrap.dataset.colId = col.id;
+        childrenWrap.dataset.folderPath = folderPath;
+        for (const sub of folderNode.folders.values()) {
+          renderFolderNode(sub, childrenWrap, depth + 1);
+        }
+        folderNode.items.forEach((it) => {
+          childrenWrap.appendChild(renderRequestRow(it, depth + 1));
+        });
+        container.appendChild(childrenWrap);
+      }
+    };
+
+    const treeData = treeLib?.buildTree
+      ? treeLib.buildTree({ folders: filteredFolders, items: filteredItems })
+      : { folders: new Map(), items: filteredItems };
+
+    for (const folderNode of treeData.folders.values()) {
+      renderFolderNode(folderNode, itemsWrap, 0);
+    }
+    treeData.items.forEach((item) => {
+      itemsWrap.appendChild(renderRequestRow(item, 0));
     });
 
     group.appendChild(header);
@@ -432,8 +657,7 @@ function renderSidebarCore() {
 
       if (profile.isProduction) {
         const prodBadge = document.createElement('span');
-        prodBadge.className = 'badge';
-        prodBadge.style.color = '#f87171';
+        prodBadge.className = 'badge badge-err';
         prodBadge.textContent = 'PROD';
         row.appendChild(prodBadge);
       }
@@ -537,9 +761,14 @@ function openRequestInTab(item, collectionId = null) {
     method: item.method || 'GET',
     url: item.url || '',
     params: item.params || [],
+    pathVars: Array.isArray(item.pathVars) ? item.pathVars : [],
     headers: item.headers || [],
     auth: item.auth || { type: 'none', token: '', username: '', password: '', keyName: '', keyValue: '', addTo: 'header' },
     body: item.body || { mode: 'none', raw: '', graphqlQuery: '', graphqlVars: '{\n  \n}', urlencoded: [], formdata: [] },
+    followRedirects: item.followRedirects !== false,
+    maxRedirects: Number.isFinite(Number(item.maxRedirects)) ? Number(item.maxRedirects) : 10,
+    baselineResponse: item.baselineResponse ? structuredClone(item.baselineResponse) : null,
+    ignoreDiffPaths: item.ignoreDiffPaths || '',
     assertions: item.assertions || [{ source: 'status', operator: '==', target: '200', enabled: true }],
     captures: item.captures || [],
     preDbQueries: Array.isArray(item.preDbQueries) ? item.preDbQueries : [],
@@ -569,9 +798,14 @@ async function syncTabBackToCollectionItem(tab, { includeHistory = true } = {}) 
   item.method = tab.method;
   item.url = tab.url;
   item.params = structuredClone(tab.params);
+  item.pathVars = Array.isArray(tab.pathVars) ? structuredClone(tab.pathVars) : [];
   item.headers = structuredClone(tab.headers);
   item.auth = structuredClone(tab.auth);
   item.body = structuredClone(tab.body);
+  item.followRedirects = tab.followRedirects !== false;
+  item.maxRedirects = Number.isFinite(Number(tab.maxRedirects)) ? Number(tab.maxRedirects) : 10;
+  item.baselineResponse = tab.baselineResponse ? structuredClone(tab.baselineResponse) : null;
+  item.ignoreDiffPaths = tab.ignoreDiffPaths || '';
   item.assertions = structuredClone(tab.assertions);
   item.captures = structuredClone(tab.captures);
   item.preDbQueries = Array.isArray(tab.preDbQueries) ? structuredClone(tab.preDbQueries) : [];

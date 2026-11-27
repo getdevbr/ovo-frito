@@ -159,6 +159,7 @@ function exportCollectionAsOvo(col) {
     collection: {
       id: col.id,
       name: col.name,
+      folders: Array.isArray(col.folders) ? col.folders : [],
       auth: sanitizeAuthForExport(col.auth || { type: 'none' }),
       variables: (Array.isArray(col.variables) ? col.variables : []).map((v) => (v?.secret ? { ...v, value: '' } : v)),
       items: (col.items || []).map((it) => ({
@@ -350,6 +351,116 @@ function generateCodeSnippet(tab, lang) {
     }
     lines.push(cmd);
     return lines.join('\n');
+  }
+
+  if (lang === 'go') {
+    const bodyArg = bodyStr ? `strings.NewReader(${JSON.stringify(bodyStr)})` : 'nil';
+    const lines = [
+      `package main`,
+      ``,
+      `import (`,
+      `  "fmt"`,
+      `  "io"`,
+      `  "net/http"`,
+      ...(bodyStr ? [`  "strings"`] : []),
+      `)`,
+      ``,
+      `func main() {`,
+      `  req, _ := http.NewRequest(${JSON.stringify(method)}, ${JSON.stringify(url)}, ${bodyArg})`
+    ];
+    for (const [k, v] of Object.entries(headersObj)) {
+      lines.push(`  req.Header.Set(${JSON.stringify(k)}, ${JSON.stringify(v)})`);
+    }
+    lines.push(
+      `  res, err := http.DefaultClient.Do(req)`,
+      `  if err != nil { panic(err) }`,
+      `  defer res.Body.Close()`,
+      `  body, _ := io.ReadAll(res.Body)`,
+      `  fmt.Println(res.StatusCode, string(body))`,
+      `}`
+    );
+    return lines.join('\n');
+  }
+
+  if (lang === 'java') {
+    const pub = bodyStr
+      ? `HttpRequest.BodyPublishers.ofString(${JSON.stringify(bodyStr)})`
+      : `HttpRequest.BodyPublishers.noBody()`;
+    const lines = [
+      `import java.net.URI;`,
+      `import java.net.http.HttpClient;`,
+      `import java.net.http.HttpRequest;`,
+      `import java.net.http.HttpResponse;`,
+      ``,
+      `HttpClient client = HttpClient.newHttpClient();`,
+      `HttpRequest request = HttpRequest.newBuilder()`,
+      `  .uri(URI.create(${JSON.stringify(url)}))`,
+      `  .method(${JSON.stringify(method)}, ${pub})`
+    ];
+    for (const [k, v] of Object.entries(headersObj)) {
+      lines.push(`  .header(${JSON.stringify(k)}, ${JSON.stringify(v)})`);
+    }
+    lines.push(
+      `  .build();`,
+      `HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());`,
+      `System.out.println(response.statusCode() + "\\n" + response.body());`
+    );
+    return lines.join('\n');
+  }
+
+  if (lang === 'csharp') {
+    const lines = [
+      `using System.Net.Http;`,
+      `using System.Text;`,
+      ``,
+      `using var client = new HttpClient();`,
+      `using var req = new HttpRequestMessage(new HttpMethod(${JSON.stringify(method)}), ${JSON.stringify(url)});`
+    ];
+    if (bodyStr) {
+      const ct = headersObj['Content-Type'] || headersObj['content-type'] || 'application/json';
+      lines.push(`req.Content = new StringContent(${JSON.stringify(bodyStr)}, Encoding.UTF8, ${JSON.stringify(ct)});`);
+    }
+    for (const [k, v] of Object.entries(headersObj)) {
+      if (k.toLowerCase() === 'content-type') continue;
+      lines.push(`req.Headers.TryAddWithoutValidation(${JSON.stringify(k)}, ${JSON.stringify(v)});`);
+    }
+    lines.push(
+      `var res = await client.SendAsync(req);`,
+      `Console.WriteLine((int)res.StatusCode);`,
+      `Console.WriteLine(await res.Content.ReadAsStringAsync());`
+    );
+    return lines.join('\n');
+  }
+
+  if (lang === 'php') {
+    const headerArr = Object.entries(headersObj)
+      .map(([k, v]) => `    ${JSON.stringify(`${k}: ${v}`)}`)
+      .join(',\n');
+    const lines = [
+      `<?php`,
+      `$ch = curl_init(${JSON.stringify(url)});`,
+      `curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);`,
+      `curl_setopt($ch, CURLOPT_CUSTOMREQUEST, ${JSON.stringify(method)});`
+    ];
+    if (headerArr) {
+      lines.push(`curl_setopt($ch, CURLOPT_HTTPHEADER, [\n${headerArr}\n]);`);
+    }
+    if (bodyStr) {
+      lines.push(`curl_setopt($ch, CURLOPT_POSTFIELDS, ${JSON.stringify(bodyStr)});`);
+    }
+    lines.push(`$response = curl_exec($ch);`, `curl_close($ch);`, `echo $response;`);
+    return lines.join('\n');
+  }
+
+  if (lang === 'httpie') {
+    const parts = [`http ${method} ${JSON.stringify(url)}`];
+    for (const [k, v] of Object.entries(headersObj)) {
+      parts.push(`  ${JSON.stringify(`${k}:${v}`)}`);
+    }
+    if (bodyStr) {
+      parts.push(`  --raw ${JSON.stringify(bodyStr)}`);
+    }
+    return parts.join(' \\\n');
   }
 
   return '';

@@ -435,20 +435,20 @@ function initUiDropdownMenus() {
       const slot = document.getElementById(trigger.dataset.dropdownToggle);
       if (!slot) return;
       const willOpen = slot.classList.contains('hidden');
-      UI_MENU_SLOTS.forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+      document.querySelectorAll('.cdo-menu-popover').forEach((p) => p.classList.add('hidden'));
       if (willOpen) slot.classList.remove('hidden');
     });
   });
 
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.cdo-dropdown')) {
-      UI_MENU_SLOTS.forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+      document.querySelectorAll('.cdo-menu-popover').forEach((p) => p.classList.add('hidden'));
     }
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      UI_MENU_SLOTS.forEach((id) => document.getElementById(id)?.classList.add('hidden'));
+      document.querySelectorAll('.cdo-menu-popover').forEach((p) => p.classList.add('hidden'));
     }
   });
 
@@ -1366,6 +1366,7 @@ async function init() {
     state.settings.activeProfileId = chosen;
     await persistStore('settings');
     renderAll();
+    window.CDO?.app?.emitAppHook?.('profile:changed', { profileId: chosen });
     const meta = getProfileMeta(getActiveProfile());
     document.getElementById('statusMessage').textContent = meta.borderColor
       ? `Profile "${meta.label}" ativado — Contorno ${meta.borderColor} aplicado na requisição!`
@@ -1417,6 +1418,7 @@ async function init() {
     if (!profile) return;
     profile.isProduction = Boolean(e.target.checked);
     persistStore('profiles');
+    window.CDO?.app?.emitAppHook?.('profile:changed', { profileId: profile.id });
     window.CDO?.app?.emitAppHook?.('sidebar:rendered', {});
   });
 
@@ -1693,6 +1695,21 @@ async function init() {
     });
   });
 
+  document.getElementById('reqFollowRedirects')?.addEventListener('change', (e) => {
+    const tab = getActiveTab();
+    if (!tab) return;
+    tab.followRedirects = Boolean(e.target.checked);
+    syncTabBackToCollectionItem(tab, { includeHistory: false });
+  });
+
+  document.getElementById('reqMaxRedirects')?.addEventListener('change', (e) => {
+    const tab = getActiveTab();
+    if (!tab) return;
+    const n = Number(e.target.value);
+    tab.maxRedirects = Number.isFinite(n) ? Math.max(0, Math.min(50, n)) : 10;
+    syncTabBackToCollectionItem(tab, { includeHistory: false });
+  });
+
   document.getElementById('btnSaveCollectionConfigModal')?.addEventListener('click', async () => {
     const col = state.collections.find((c) => c.id === editingCollectionConfigId);
     if (col) {
@@ -1708,6 +1725,8 @@ async function init() {
         keyValue: document.getElementById('colAuthApiKeyValueInput')?.value || '',
         addTo: document.getElementById('colAuthApiKeyAddToSelect')?.value || 'header'
       };
+      col.preRequestScript = document.getElementById('colPreRequestScriptInput')?.value || '';
+      col.postResponseScript = document.getElementById('colPostResponseScriptInput')?.value || '';
     }
     await persistStore('collections');
     document.getElementById('collectionConfigModal')?.classList.add('hidden');

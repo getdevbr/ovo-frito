@@ -145,6 +145,22 @@ test('ui-full-suite: menus, toolbox, sidebar, editor, response e config', async 
     await expect(page.locator('#appSidebar')).not.toHaveClass(/collapsed/);
     await page.fill('#sidebarSearchInput', '');
 
+    // ===== 6b. Pastas na Collection (Criar, Renomear, Excluir) =====
+    await page.click('.btn-add-folder-inline >> nth=0');
+    await expect(page.locator('.folder-row .inline-rename-input')).toBeVisible();
+    await page.fill('.folder-row .inline-rename-input', 'Autenticacao');
+    await page.press('.folder-row .inline-rename-input', 'Enter');
+    await expect(page.locator('.folder-row[data-folder-path="Autenticacao"]')).toBeVisible();
+
+    await page.click('.folder-row[data-folder-path="Autenticacao"] [aria-label="Renomear pasta Autenticacao"]');
+    await expect(page.locator('.folder-row .inline-rename-input')).toBeVisible();
+    await page.fill('.folder-row .inline-rename-input', 'Seguranca');
+    await page.press('.folder-row .inline-rename-input', 'Enter');
+    await expect(page.locator('.folder-row[data-folder-path="Seguranca"]')).toBeVisible();
+
+    await page.click('.folder-row[data-folder-path="Seguranca"] [aria-label="Excluir pasta Seguranca"]');
+    await expect(page.locator('.folder-row[data-folder-path="Seguranca"]')).toHaveCount(0);
+
     // ===== 7. Request editor + envio =====
     await page.click('#btnNewTab');
     await page.fill('#reqNameInput', 'E2E Echo');

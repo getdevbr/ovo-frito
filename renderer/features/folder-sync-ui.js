@@ -32,7 +32,7 @@
     btn.id = 'btnOpenSyncModal';
     btn.type = 'button';
     btn.className = 'btn-secondary';
-    btn.textContent = '🗂 Sync';
+    btn.innerHTML = `${window.CDO?.icons?.svg?.('refresh') || ''} Sync`;
     btn.title = isElectron() ? 'Sincronizar Collection com pasta .ovo no disco' : 'Disponível apenas no app Electron';
     if (!isElectron()) btn.disabled = true;
     actions.appendChild(btn);

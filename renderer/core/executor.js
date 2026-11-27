@@ -371,6 +371,36 @@ function createScriptConsoleProxy(tab, phase = 'Pre-request') {
 }
 
 
+// FUT-06: Coleta scripts herdados na ordem Collection -> Pastas (ancestrais -> folha) -> Request
+function collectInheritedScripts(tab, phase) {
+  const scripts = [];
+  const field = phase === 'pre' ? 'preRequestScript' : 'postResponseScript';
+  if (tab?.collectionId) {
+    const col = state.collections.find((c) => c.id === tab.collectionId);
+    if (col) {
+      if (col[field] && col[field].trim()) {
+        scripts.push({ label: `Collection (${col.name})`, code: col[field] });
+      }
+      const folderPath = String(tab.folder || '').trim();
+      if (folderPath && col.folderScripts && typeof col.folderScripts === 'object') {
+        const parts = folderPath.split('/').map((s) => s.trim()).filter(Boolean);
+        let acc = '';
+        for (const p of parts) {
+          acc = acc ? `${acc}/${p}` : p;
+          const fsCode = col.folderScripts[acc]?.[field];
+          if (fsCode && fsCode.trim()) {
+            scripts.push({ label: `Pasta (${acc})`, code: fsCode });
+          }
+        }
+      }
+    }
+  }
+  if (tab?.[field] && tab[field].trim()) {
+    scripts.push({ label: phase === 'pre' ? 'Pre-request' : 'Post-response', code: tab[field] });
+  }
+  return scripts;
+}
+
 async function executePreRequestScript(tab) {
   tab.scriptConsoleLogs = [];
   tab.dbContext = { dbResult: null, dbResults: {}, history: [] };
@@ -379,136 +409,141 @@ async function executePreRequestScript(tab) {
   const preDbOut = await executeDeclarativeDbSteps(tab, 'pre', null, null);
   tab._preDbOutcomes = preDbOut;
 
-  const code = (tab.preRequestScript || '').trim();
-  if (!code) return;
-  let envDirty = false;
-  const env = getOrInitActiveProfileForScripts();
-  const dbConnection = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection(env) : null;
+  const scripts = collectInheritedScripts(tab, 'pre');
+  if (scripts.length === 0) return;
 
-  const result = await IPC.invoke('pm:script:run', {
-    phase: 'pre',
-    code,
-    envVars: (env.variables || []).map((v) => ({ key: v.key, value: v.value, enabled: v.enabled !== false })),
-    request: {},
-    dbConnection,
-    dbResult: tab.dbContext?.dbResult || null,
-    dbResults: tab.dbContext?.dbResults || {},
-    timeoutMs: 5000
-  });
+  for (const sc of scripts) {
+    let envDirty = false;
+    const env = getOrInitActiveProfileForScripts();
+    const dbConnection = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection(env) : null;
 
-  const scriptConsole = createScriptConsoleProxy(tab, 'Pre-request');
-  if (!result || result.ok === false) {
-    scriptConsole.error(`Erro no Pre-request Script: ${(result && result.error) || 'falha no sandbox'}`);
-  }
-  for (const log of result?.logs || []) {
-    if (log.level === 'WARN') scriptConsole.warn(log.message);
-    else if (log.level === 'ERROR') scriptConsole.error(log.message);
-    else scriptConsole.log(log.message);
-  }
-  for (const q of result?.dbQueries || []) {
-    tab.dbContext.dbResult = { ok: q.ok, rows: q.rowsPreview || [], rowCount: q.rowCount || 0, durationMs: q.durationMs || 0, error: q.error || null };
-    tab.dbContext.history.push(q);
-  }
+    const result = await IPC.invoke('pm:script:run', {
+      phase: 'pre',
+      code: sc.code,
+      envVars: (env.variables || []).map((v) => ({ key: v.key, value: v.value, enabled: v.enabled !== false })),
+      request: {},
+      dbConnection,
+      dbResult: tab.dbContext?.dbResult || null,
+      dbResults: tab.dbContext?.dbResults || {},
+      timeoutMs: 5000
+    });
 
-  for (const h of result?.headersAdded || []) {
-    tab.headers.push({ key: String(h.key), value: String(h.value ?? ''), enabled: true });
-  }
-  for (const set of result?.envSets || []) {
-    const strVal = String(set.value ?? '');
-    const found = (env.variables || []).find((v) => v.key === set.key);
-    if (found) {
-      found.value = strVal;
-      found.enabled = true;
-    } else {
-      env.variables.push({ key: String(set.key), value: strVal, enabled: true, secret: false });
+    const scriptConsole = createScriptConsoleProxy(tab, sc.label);
+    if (!result || result.ok === false) {
+      scriptConsole.error(`Erro no Script (${sc.label}): ${(result && result.error) || 'falha no sandbox'}`);
     }
-    envDirty = true;
-  }
+    for (const log of result?.logs || []) {
+      if (log.level === 'WARN') scriptConsole.warn(log.message);
+      else if (log.level === 'ERROR') scriptConsole.error(log.message);
+      else scriptConsole.log(log.message);
+    }
+    for (const q of result?.dbQueries || []) {
+      tab.dbContext.dbResult = { ok: q.ok, rows: q.rowsPreview || [], rowCount: q.rowCount || 0, durationMs: q.durationMs || 0, error: q.error || null };
+      tab.dbContext.history.push(q);
+    }
 
-  if (envDirty) {
-    await persistStore('profiles');
-    await persistStore('settings');
+    for (const h of result?.headersAdded || []) {
+      tab.headers.push({ key: String(h.key), value: String(h.value ?? ''), enabled: true });
+    }
+    for (const set of result?.envSets || []) {
+      const strVal = String(set.value ?? '');
+      const found = (env.variables || []).find((v) => v.key === set.key);
+      if (found) {
+        found.value = strVal;
+        found.enabled = true;
+      } else {
+        env.variables.push({ key: String(set.key), value: strVal, enabled: true, secret: false });
+      }
+      envDirty = true;
+    }
+
+    if (envDirty) {
+      await persistStore('profiles');
+      await persistStore('settings');
+    }
   }
 }
 
 
 async function executePostResponseScript(tab, response, parsedJson) {
-  const code = (tab.postResponseScript || '').trim();
+  const scripts = collectInheritedScripts(tab, 'post');
   const assertions = [];
   const captures = [];
-  if (!code) return { assertions, captures };
+  if (scripts.length === 0) return { assertions, captures };
 
-  let envDirty = false;
-  const env = getOrInitActiveProfileForScripts();
-  const dbConnection = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection(env) : null;
+  for (const sc of scripts) {
+    let envDirty = false;
+    const env = getOrInitActiveProfileForScripts();
+    const dbConnection = typeof resolveActiveDbConnection === 'function' ? resolveActiveDbConnection(env) : null;
 
-  const result = await IPC.invoke('pm:script:run', {
-    phase: 'post',
-    code,
-    envVars: (env.variables || []).map((v) => ({ key: v.key, value: v.value, enabled: v.enabled !== false })),
-    request: {},
-    response: {
-      status: response.status,
-      statusText: response.statusText,
-      timeMs: response.timeMs,
-      headers: response.headers || {},
-      body: response.body || '',
-      parsedJson: parsedJson ?? null
-    },
-    dbConnection,
-    dbResult: tab.dbContext?.dbResult || null,
-    dbResults: tab.dbContext?.dbResults || {},
-    timeoutMs: 5000
-  });
-
-  const scriptConsole = createScriptConsoleProxy(tab, 'Post-response');
-  if (!result || result.ok === false) {
-    scriptConsole.error(`Erro no Post-response Script: ${(result && result.error) || 'falha no sandbox'}`);
-    assertions.push({
-      source: 'Script Error',
-      operator: '=>',
-      target: 'Execução do Script JS',
-      actual: (result && result.error) || 'falha no sandbox',
-      passed: false
+    const result = await IPC.invoke('pm:script:run', {
+      phase: 'post',
+      code: sc.code,
+      envVars: (env.variables || []).map((v) => ({ key: v.key, value: v.value, enabled: v.enabled !== false })),
+      request: {},
+      response: {
+        status: response.status,
+        statusText: response.statusText,
+        timeMs: response.timeMs,
+        headers: response.headers || {},
+        body: response.body || '',
+        parsedJson: parsedJson ?? null
+      },
+      dbConnection,
+      dbResult: tab.dbContext?.dbResult || null,
+      dbResults: tab.dbContext?.dbResults || {},
+      timeoutMs: 5000
     });
-  }
-  for (const log of result?.logs || []) {
-    if (log.level === 'WARN') scriptConsole.warn(log.message);
-    else if (log.level === 'ERROR') scriptConsole.error(log.message);
-    else scriptConsole.log(log.message);
-  }
-  for (const q of result?.dbQueries || []) {
-    if (!tab.dbContext) tab.dbContext = { dbResult: null, dbResults: {}, history: [] };
-    tab.dbContext.dbResult = { ok: q.ok, rows: q.rowsPreview || [], rowCount: q.rowCount || 0, durationMs: q.durationMs || 0, error: q.error || null };
-    tab.dbContext.history.push(q);
-  }
 
-  for (const set of result?.envSets || []) {
-    const strVal = String(set.value ?? '');
-    const found = (env.variables || []).find((v) => v.key === set.key);
-    if (found) {
-      found.value = strVal;
-      found.enabled = true;
-    } else {
-      env.variables.push({ key: String(set.key), value: strVal, enabled: true, secret: /token|secret|key|pass/i.test(set.key) });
+    const scriptConsole = createScriptConsoleProxy(tab, sc.label);
+    if (!result || result.ok === false) {
+      scriptConsole.error(`Erro no Script (${sc.label}): ${(result && result.error) || 'falha no sandbox'}`);
+      assertions.push({
+        source: `Script Error (${sc.label})`,
+        operator: '=>',
+        target: 'Execução do Script JS',
+        actual: (result && result.error) || 'falha no sandbox',
+        passed: false
+      });
     }
-    envDirty = true;
-    captures.push({ source: 'pm.environment.set', varName: String(set.key), value: strVal, ok: true });
-  }
+    for (const log of result?.logs || []) {
+      if (log.level === 'WARN') scriptConsole.warn(log.message);
+      else if (log.level === 'ERROR') scriptConsole.error(log.message);
+      else scriptConsole.log(log.message);
+    }
+    for (const q of result?.dbQueries || []) {
+      if (!tab.dbContext) tab.dbContext = { dbResult: null, dbResults: {}, history: [] };
+      tab.dbContext.dbResult = { ok: q.ok, rows: q.rowsPreview || [], rowCount: q.rowCount || 0, durationMs: q.durationMs || 0, error: q.error || null };
+      tab.dbContext.history.push(q);
+    }
 
-  for (const t of result?.tests || []) {
-    assertions.push({
-      source: 'pm.test',
-      operator: '=>',
-      target: t.name,
-      actual: t.passed ? 'OK' : t.actual,
-      passed: !!t.passed
-    });
-  }
+    for (const set of result?.envSets || []) {
+      const strVal = String(set.value ?? '');
+      const found = (env.variables || []).find((v) => v.key === set.key);
+      if (found) {
+        found.value = strVal;
+        found.enabled = true;
+      } else {
+        env.variables.push({ key: String(set.key), value: strVal, enabled: true, secret: /token|secret|key|pass/i.test(set.key) });
+      }
+      envDirty = true;
+      captures.push({ source: 'pm.environment.set', varName: String(set.key), value: strVal, ok: true });
+    }
 
-  if (envDirty) {
-    await persistStore('profiles');
-    await persistStore('settings');
+    for (const t of result?.tests || []) {
+      assertions.push({
+        source: 'pm.test',
+        operator: '=>',
+        target: t.name,
+        actual: t.passed ? 'OK' : t.actual,
+        passed: !!t.passed
+      });
+    }
+
+    if (envDirty) {
+      await persistStore('profiles');
+      await persistStore('settings');
+    }
   }
 
   return { assertions, captures };
@@ -530,7 +565,10 @@ async function executeTabRequestObject(tab) {
   // 1. Executa Pre-request Script (pm.*) antes de interpolar variáveis
   await executePreRequestScript(tab);
 
-  const resolvedUrl = interpolateVariables(tab.url || '');
+  let resolvedUrl = interpolateVariables(tab.url || '');
+  if (window.CDO?.pathVars?.applyPathVars && Array.isArray(tab.pathVars) && tab.pathVars.length > 0) {
+    resolvedUrl = window.CDO.pathVars.applyPathVars(resolvedUrl, tab.pathVars, interpolateVariables);
+  }
   const resolvedHeaders = (tab.headers || []).map((h) => ({
     key: interpolateVariables(h.key || ''),
     value: interpolateVariables(h.value || ''),
@@ -656,6 +694,8 @@ async function executeTabRequestObject(tab) {
     headers: resolvedHeaders,
     auth: resolvedAuth,
     body: resolvedBody,
+    followRedirects: tab.followRedirects !== false,
+    maxRedirects: Number.isFinite(Number(tab.maxRedirects)) ? Number(tab.maxRedirects) : 10,
     timeoutMs: Number(state.settings.timeoutMs) || 30000,
     network: resolvedNetwork
   };
@@ -751,7 +791,10 @@ async function sendActiveRequest() {
   if (isActiveProfileProduction(env)) {
     const meta = getProfileMeta(env);
     const ctxName = meta.label || env.name || 'Profile';
-    const resolvedUrl = interpolateVariables(tab.url || '');
+    let resolvedUrl = interpolateVariables(tab.url || '');
+  if (window.CDO?.pathVars?.applyPathVars && Array.isArray(tab.pathVars) && tab.pathVars.length > 0) {
+    resolvedUrl = window.CDO.pathVars.applyPathVars(resolvedUrl, tab.pathVars, interpolateVariables);
+  }
     const msg = `🚨 PRODUÇÃO ATIVA em ${ctxName}\n\nDeseja realmente enviar ${method} para:\n${resolvedUrl} ?`;
     const confirmed = window.CDO?.dialog?.confirm
       ? await window.CDO.dialog.confirm({ title: 'Enviar em Produção', message: msg, confirmLabel: 'Enviar em PROD', danger: true })
@@ -763,10 +806,14 @@ async function sendActiveRequest() {
   } else if (isActiveProfileConfirmDestructive(env) && ['DELETE', 'PUT', 'PATCH', 'POST'].includes(method)) {
     const meta = getProfileMeta(env);
     const ctxName = meta.label || env.name || 'Profile';
-    const resolvedUrl = interpolateVariables(tab.url || '');
-    const confirmed = window.confirm(
-      `🛡️ Trava Anti-Acidente Ativa em ${ctxName}\n\nDeseja realmente enviar a requisição ${method} para:\n${resolvedUrl} ?`
-    );
+    let resolvedUrl = interpolateVariables(tab.url || '');
+  if (window.CDO?.pathVars?.applyPathVars && Array.isArray(tab.pathVars) && tab.pathVars.length > 0) {
+    resolvedUrl = window.CDO.pathVars.applyPathVars(resolvedUrl, tab.pathVars, interpolateVariables);
+  }
+    const msg = `🛡️ Trava Anti-Acidente Ativa em ${ctxName}\n\nDeseja realmente enviar a requisição ${method} para:\n${resolvedUrl} ?`;
+    const confirmed = window.CDO?.dialog?.confirm
+      ? await window.CDO.dialog.confirm({ title: 'Trava Anti-Acidente', message: msg, confirmLabel: 'Enviar', danger: true })
+      : window.confirm(msg);
     if (!confirmed) {
       document.getElementById('statusMessage').textContent = `Envio de ${method} cancelado pela trava de segurança do Profile.`;
       return;

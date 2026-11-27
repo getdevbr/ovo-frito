@@ -32,7 +32,7 @@
     btn.id = 'btnOpenMockModal';
     btn.type = 'button';
     btn.className = 'btn-small';
-    btn.textContent = '🎭 Mock';
+    btn.innerHTML = `${window.CDO?.icons?.svg?.('play') || ''} Mock`;
     btn.title = isElectron() ? 'Subir Mock Server local 127.0.0.1 para uma Collection' : 'Disponível apenas no app Electron';
     if (!isElectron()) btn.disabled = true;
     topActions.appendChild(btn);
@@ -50,6 +50,11 @@
               <select id="mockCollectionSelect" class="select-input" style="min-width:220px;"></select>
               <label>Porta:</label>
               <input id="mockPortInput" type="number" class="text-input" style="width:90px;" value="4000" min="0" max="65535" />
+              <label>Delay (ms):</label>
+              <input id="mockDelayInput" type="number" class="text-input" style="width:75px;" value="0" min="0" max="30000" />
+              <label>Erro (%):</label>
+              <input id="mockErrorRateInput" type="number" class="text-input" style="width:65px;" value="0" min="0" max="100" />
+              <label title="CRUD em memória (POST/GET/PUT/DELETE)"><input id="mockStatefulInput" type="checkbox" /> Stateful</label>
               <label><input id="mockCorsInput" type="checkbox" checked /> CORS</label>
               <button id="btnMockStart" class="btn-send" style="height:32px;">▶ Start</button>
               <button id="btnMockStop" class="btn-small btn-danger-ghost">■ Stop</button>
@@ -161,6 +166,9 @@
         port: Number(document.getElementById('mockPortInput')?.value || 4000),
         host: '127.0.0.1',
         cors: Boolean(document.getElementById('mockCorsInput')?.checked),
+        delayMs: Number(document.getElementById('mockDelayInput')?.value || 0),
+        errorRate: Number(document.getElementById('mockErrorRateInput')?.value || 0),
+        stateful: Boolean(document.getElementById('mockStatefulInput')?.checked),
         variables: {}
       });
       if (res?.ok) {
@@ -197,7 +205,15 @@
           if (statusEl()) statusEl().textContent = 'Salve a requisição em uma Collection antes de criar exemplo de Mock.';
           return;
         }
-        const name = window.prompt('Nome do exemplo de mock:', `${item.name || 'exemplo'} — resposta atual`);
+        const defaultName = `${item.name || 'exemplo'} — resposta atual`;
+        const name = window.CDO?.dialog?.prompt
+          ? await window.CDO.dialog.prompt({
+              title: 'Salvar Exemplo de Mock',
+              message: 'Informe um nome para este exemplo de resposta mockada:',
+              defaultValue: defaultName,
+              confirmLabel: 'Salvar Exemplo'
+            })
+          : window.prompt('Nome do exemplo de mock:', defaultName);
         if (name === null) return;
         const headers = Object.entries(tab.response?.headers || {})
           .filter(([k]) => !['content-length', 'transfer-encoding', 'connection'].includes(String(k).toLowerCase()))
